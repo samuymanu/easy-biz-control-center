@@ -4,9 +4,12 @@ const sqlite3 = require('sqlite3').verbose();
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const JWT_SECRET = process.env.JWT_SECRET || 'sistema-admin-secret-key-2024';
 
 // Middleware
 app.use(cors());
@@ -29,13 +32,30 @@ const db = new sqlite3.Database(dbPath, (err) => {
     }
 });
 
+// Middleware para verificar JWT
+const authenticateToken = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (!token) {
+        return res.status(401).json({ error: 'Token de acceso requerido' });
+    }
+
+    jwt.verify(token, JWT_SECRET, (err, user) => {
+        if (err) {
+            return res.status(403).json({ error: 'Token inválido' });
+        }
+        req.user = user;
+        next();
+    });
+};
+
 // Inicializar base de datos con el schema
 function initializeDatabase() {
     const schemaPath = path.join(__dirname, '..', 'src', 'database', 'schema.sql');
     
     try {
         const schema = fs.readFileSync(schemaPath, 'utf8');
-        // Dividir el schema en declaraciones individuales
         const statements = schema.split(';').filter(stmt => stmt.trim().length > 0);
         
         statements.forEach((statement, index) => {
@@ -48,30 +68,42 @@ function initializeDatabase() {
             });
         });
         
+        // Crear usuario admin por defecto
+        const hashedPassword = bcrypt.hashSync('admin', 10);
+        db.run(
+            'INSERT OR IGNORE INTO users (username, password_hash, email, full_name, role) VALUES (?, ?, ?, ?, ?)',
+            ['admin', hashedPassword, 'admin@sistema.com', 'Administrador', 'admin']
+        );
+        
         console.log('Base de datos inicializada correctamente');
     } catch (error) {
         console.error('Error leyendo el archivo schema.sql:', error);
     }
 }
 
-// Rutas de API
-
 // AUTH ROUTES
 app.post('/api/auth/login', (req, res) => {
     const { username, password } = req.body;
     
     db.get(
-        'SELECT * FROM users WHERE username = ? AND password_hash = ? AND is_active = 1',
-        [username, password],
+        'SELECT * FROM users WHERE username = ? AND is_active = 1',
+        [username],
         (err, row) => {
             if (err) {
                 res.status(500).json({ error: 'Error interno del servidor' });
                 return;
             }
             
-            if (row) {
+            if (row && bcrypt.compareSync(password, row.password_hash)) {
+                const token = jwt.sign(
+                    { id: row.id, username: row.username, role: row.role },
+                    JWT_SECRET,
+                    { expiresIn: '24h' }
+                );
+                
                 res.json({
                     success: true,
+                    token,
                     user: {
                         id: row.id,
                         username: row.username,
@@ -87,8 +119,94 @@ app.post('/api/auth/login', (req, res) => {
     );
 });
 
+app.post('/api/auth/register', authenticateToken, (req, res) => {
+    const { username, password, email, fullName, role } = req.body;
+    
+    if (req.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Permisos insuficientes' });
+    }
+    
+    const hashedPassword = bcrypt.hashSync(password, 10);
+    
+    db.run(
+        'INSERT INTO users (username, password_hash, email, full_name, role) VALUES (?, ?, ?, ?, ?)',
+        [username, hashedPassword, email, fullName, role || 'user'],
+        function(err) {
+            if (err) {
+                if (err.message.includes('UNIQUE constraint failed')) {
+                    res.status(400).json({ error: 'Usuario o email ya existe' });
+                } else {
+                    res.status(500).json({ error: 'Error al crear usuario' });
+                }
+                return;
+            }
+            res.json({ id: this.lastID, message: 'Usuario creado correctamente' });
+        }
+    );
+});
+
+// USERS ROUTES
+app.get('/api/users', authenticateToken, (req, res) => {
+    if (req.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Permisos insuficientes' });
+    }
+    
+    db.all(
+        'SELECT id, username, email, full_name, role, is_active, created_at FROM users ORDER BY created_at DESC',
+        [],
+        (err, rows) => {
+            if (err) {
+                res.status(500).json({ error: 'Error al obtener usuarios' });
+                return;
+            }
+            res.json(rows);
+        }
+    );
+});
+
+app.put('/api/users/:id', authenticateToken, (req, res) => {
+    if (req.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Permisos insuficientes' });
+    }
+    
+    const { id } = req.params;
+    const { username, email, fullName, role, isActive } = req.body;
+    
+    db.run(
+        'UPDATE users SET username = ?, email = ?, full_name = ?, role = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+        [username, email, fullName, role, isActive, id],
+        function(err) {
+            if (err) {
+                res.status(500).json({ error: 'Error al actualizar usuario' });
+                return;
+            }
+            res.json({ message: 'Usuario actualizado correctamente' });
+        }
+    );
+});
+
+app.delete('/api/users/:id', authenticateToken, (req, res) => {
+    if (req.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Permisos insuficientes' });
+    }
+    
+    const { id } = req.params;
+    
+    db.run(
+        'UPDATE users SET is_active = 0 WHERE id = ?',
+        [id],
+        function(err) {
+            if (err) {
+                res.status(500).json({ error: 'Error al eliminar usuario' });
+                return;
+            }
+            res.json({ message: 'Usuario eliminado correctamente' });
+        }
+    );
+});
+
 // PRODUCTS ROUTES
-app.get('/api/products', (req, res) => {
+app.get('/api/products', authenticateToken, (req, res) => {
     const query = `
         SELECT p.*, c.name as category_name, s.name as supplier_name
         FROM products p
@@ -107,7 +225,7 @@ app.get('/api/products', (req, res) => {
     });
 });
 
-app.post('/api/products', (req, res) => {
+app.post('/api/products', authenticateToken, (req, res) => {
     const {
         sku, name, description, category_id, supplier_id,
         cost_price, sale_price, current_stock, minimum_stock
@@ -132,7 +250,7 @@ app.post('/api/products', (req, res) => {
     });
 });
 
-app.put('/api/products/:id', (req, res) => {
+app.put('/api/products/:id', authenticateToken, (req, res) => {
     const { id } = req.params;
     const {
         sku, name, description, category_id, supplier_id,
@@ -160,7 +278,7 @@ app.put('/api/products/:id', (req, res) => {
 });
 
 // CUSTOMERS ROUTES
-app.get('/api/customers', (req, res) => {
+app.get('/api/customers', authenticateToken, (req, res) => {
     db.all(
         'SELECT * FROM customers WHERE is_active = 1 ORDER BY created_at DESC',
         [],
@@ -174,7 +292,7 @@ app.get('/api/customers', (req, res) => {
     );
 });
 
-app.post('/api/customers', (req, res) => {
+app.post('/api/customers', authenticateToken, (req, res) => {
     const { name, email, phone, address, tax_id } = req.body;
     
     db.run(
@@ -191,7 +309,7 @@ app.post('/api/customers', (req, res) => {
 });
 
 // SALES ROUTES
-app.get('/api/sales', (req, res) => {
+app.get('/api/sales', authenticateToken, (req, res) => {
     const query = `
         SELECT s.*, c.name as customer_name
         FROM sales s
@@ -208,25 +326,23 @@ app.get('/api/sales', (req, res) => {
     });
 });
 
-app.post('/api/sales', (req, res) => {
+app.post('/api/sales', authenticateToken, (req, res) => {
     const {
         customer_id, subtotal, tax_amount, total_amount,
         payment_method, items
     } = req.body;
     
-    // Generar número de venta
     const sale_number = `SALE-${Date.now()}`;
     
     db.serialize(() => {
         db.run('BEGIN TRANSACTION');
         
-        // Insertar venta
         db.run(
             `INSERT INTO sales (
                 sale_number, customer_id, sale_date, subtotal,
-                tax_amount, total_amount, payment_method
-            ) VALUES (?, ?, DATE('now'), ?, ?, ?, ?)`,
-            [sale_number, customer_id, subtotal, tax_amount, total_amount, payment_method],
+                tax_amount, total_amount, payment_method, user_id
+            ) VALUES (?, ?, DATE('now'), ?, ?, ?, ?, ?)`,
+            [sale_number, customer_id, subtotal, tax_amount, total_amount, payment_method, req.user.id],
             function(err) {
                 if (err) {
                     db.run('ROLLBACK');
@@ -236,7 +352,6 @@ app.post('/api/sales', (req, res) => {
                 
                 const sale_id = this.lastID;
                 
-                // Insertar detalles de venta
                 const stmt = db.prepare(`
                     INSERT INTO sale_details (sale_id, product_id, quantity, unit_price, line_total)
                     VALUES (?, ?, ?, ?, ?)
@@ -261,18 +376,36 @@ app.post('/api/sales', (req, res) => {
 });
 
 // INVENTORY MOVEMENTS ROUTES
-app.post('/api/inventory/movement', (req, res) => {
-    const { product_id, movement_type, quantity, reason, user_id } = req.body;
+app.get('/api/inventory/movements', authenticateToken, (req, res) => {
+    const query = `
+        SELECT im.*, p.name as product_name, u.username
+        FROM inventory_movements im
+        LEFT JOIN products p ON im.product_id = p.id
+        LEFT JOIN users u ON im.user_id = u.id
+        ORDER BY im.created_at DESC
+        LIMIT 100
+    `;
+    
+    db.all(query, [], (err, rows) => {
+        if (err) {
+            res.status(500).json({ error: 'Error al obtener movimientos' });
+            return;
+        }
+        res.json(rows);
+    });
+});
+
+app.post('/api/inventory/movement', authenticateToken, (req, res) => {
+    const { product_id, movement_type, quantity, reason } = req.body;
     
     db.serialize(() => {
         db.run('BEGIN TRANSACTION');
         
-        // Insertar movimiento
         db.run(
             `INSERT INTO inventory_movements (
                 product_id, movement_type, quantity, reason, user_id
             ) VALUES (?, ?, ?, ?, ?)`,
-            [product_id, movement_type, quantity, reason, user_id],
+            [product_id, movement_type, quantity, reason, req.user.id],
             function(err) {
                 if (err) {
                     db.run('ROLLBACK');
@@ -280,7 +413,6 @@ app.post('/api/inventory/movement', (req, res) => {
                     return;
                 }
                 
-                // Actualizar stock del producto
                 const stockChange = movement_type === 'entrada' ? quantity : -quantity;
                 
                 db.run(
@@ -302,7 +434,7 @@ app.post('/api/inventory/movement', (req, res) => {
 });
 
 // CATEGORIES ROUTES
-app.get('/api/categories', (req, res) => {
+app.get('/api/categories', authenticateToken, (req, res) => {
     db.all('SELECT * FROM categories ORDER BY name', [], (err, rows) => {
         if (err) {
             res.status(500).json({ error: 'Error al obtener categorías' });
@@ -312,8 +444,24 @@ app.get('/api/categories', (req, res) => {
     });
 });
 
+app.post('/api/categories', authenticateToken, (req, res) => {
+    const { name, description } = req.body;
+    
+    db.run(
+        'INSERT INTO categories (name, description) VALUES (?, ?)',
+        [name, description],
+        function(err) {
+            if (err) {
+                res.status(500).json({ error: 'Error al crear categoría' });
+                return;
+            }
+            res.json({ id: this.lastID, message: 'Categoría creada correctamente' });
+        }
+    );
+});
+
 // SUPPLIERS ROUTES
-app.get('/api/suppliers', (req, res) => {
+app.get('/api/suppliers', authenticateToken, (req, res) => {
     db.all(
         'SELECT * FROM suppliers WHERE is_active = 1 ORDER BY name',
         [],
@@ -327,61 +475,236 @@ app.get('/api/suppliers', (req, res) => {
     );
 });
 
-// DASHBOARD STATS
-app.get('/api/dashboard/stats', (req, res) => {
-    const stats = {};
+app.post('/api/suppliers', authenticateToken, (req, res) => {
+    const { name, contact_person, email, phone, address, tax_id } = req.body;
     
-    db.serialize(() => {
-        // Total de ventas del mes
-        db.get(
-            `SELECT SUM(total_amount) as monthly_sales, COUNT(*) as sales_count
-             FROM sales WHERE strftime('%Y-%m', sale_date) = strftime('%Y-%m', 'now')`,
-            [],
-            (err, row) => {
-                if (!err) {
-                    stats.monthly_sales = row.monthly_sales || 0;
-                    stats.sales_count = row.sales_count || 0;
-                }
+    db.run(
+        'INSERT INTO suppliers (name, contact_person, email, phone, address, tax_id) VALUES (?, ?, ?, ?, ?, ?)',
+        [name, contact_person, email, phone, address, tax_id],
+        function(err) {
+            if (err) {
+                res.status(500).json({ error: 'Error al crear proveedor' });
+                return;
             }
-        );
+            res.json({ id: this.lastID, message: 'Proveedor creado correctamente' });
+        }
+    );
+});
+
+// SYSTEM CONFIG ROUTES
+app.get('/api/config', authenticateToken, (req, res) => {
+    db.all('SELECT * FROM system_config', [], (err, rows) => {
+        if (err) {
+            res.status(500).json({ error: 'Error al obtener configuración' });
+            return;
+        }
         
-        // Total productos en stock
-        db.get(
-            'SELECT SUM(current_stock) as total_stock, COUNT(*) as product_count FROM products WHERE is_active = 1',
-            [],
-            (err, row) => {
-                if (!err) {
-                    stats.total_stock = row.total_stock || 0;
-                    stats.product_count = row.product_count || 0;
-                }
-            }
-        );
+        const config = {};
+        rows.forEach(row => {
+            config[row.config_key] = row.config_value;
+        });
         
-        // Valor del inventario
-        db.get(
-            'SELECT SUM(current_stock * cost_price) as inventory_value FROM products WHERE is_active = 1',
-            [],
-            (err, row) => {
-                if (!err) {
-                    stats.inventory_value = row.inventory_value || 0;
-                }
-            }
-        );
-        
-        // Productos con stock bajo
-        db.get(
-            'SELECT COUNT(*) as low_stock_count FROM products WHERE current_stock <= minimum_stock AND is_active = 1',
-            [],
-            (err, row) => {
-                if (!err) {
-                    stats.low_stock_count = row.low_stock_count || 0;
-                }
-                
-                // Enviar todas las estadísticas
-                res.json(stats);
-            }
-        );
+        res.json(config);
     });
+});
+
+app.post('/api/config', authenticateToken, (req, res) => {
+    if (req.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Permisos insuficientes' });
+    }
+    
+    const { config_key, config_value } = req.body;
+    
+    db.run(
+        'INSERT OR REPLACE INTO system_config (config_key, config_value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)',
+        [config_key, config_value],
+        function(err) {
+            if (err) {
+                res.status(500).json({ error: 'Error al guardar configuración' });
+                return;
+            }
+            res.json({ message: 'Configuración guardada correctamente' });
+        }
+    );
+});
+
+// REPORTS ROUTES
+app.get('/api/reports/sales', authenticateToken, (req, res) => {
+    const { from_date, to_date } = req.query;
+    
+    let query = `
+        SELECT 
+            DATE(s.sale_date) as date,
+            SUM(s.total_amount) as total_sales,
+            COUNT(*) as sales_count
+        FROM sales s
+        WHERE 1=1
+    `;
+    
+    const params = [];
+    
+    if (from_date) {
+        query += ' AND s.sale_date >= ?';
+        params.push(from_date);
+    }
+    
+    if (to_date) {
+        query += ' AND s.sale_date <= ?';
+        params.push(to_date);
+    }
+    
+    query += ' GROUP BY DATE(s.sale_date) ORDER BY s.sale_date DESC';
+    
+    db.all(query, params, (err, rows) => {
+        if (err) {
+            res.status(500).json({ error: 'Error al generar reporte de ventas' });
+            return;
+        }
+        res.json(rows);
+    });
+});
+
+app.get('/api/reports/products', authenticateToken, (req, res) => {
+    const query = `
+        SELECT 
+            p.name,
+            p.current_stock,
+            p.minimum_stock,
+            p.cost_price * p.current_stock as stock_value,
+            CASE 
+                WHEN p.current_stock <= p.minimum_stock THEN 'Bajo'
+                WHEN p.current_stock <= p.minimum_stock * 1.5 THEN 'Medio'
+                ELSE 'Normal'
+            END as stock_status
+        FROM products p
+        WHERE p.is_active = 1
+        ORDER BY p.current_stock ASC
+    `;
+    
+    db.all(query, [], (err, rows) => {
+        if (err) {
+            res.status(500).json({ error: 'Error al generar reporte de productos' });
+            return;
+        }
+        res.json(rows);
+    });
+});
+
+// BACKUP ROUTES
+app.post('/api/backup/create', authenticateToken, (req, res) => {
+    if (req.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Permisos insuficientes' });
+    }
+    
+    const backupDir = path.join(__dirname, 'backups');
+    if (!fs.existsSync(backupDir)) {
+        fs.mkdirSync(backupDir, { recursive: true });
+    }
+    
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const backupPath = path.join(backupDir, `backup-${timestamp}.db`);
+    
+    try {
+        fs.copyFileSync(dbPath, backupPath);
+        res.json({ message: 'Respaldo creado correctamente', backup_file: `backup-${timestamp}.db` });
+    } catch (error) {
+        res.status(500).json({ error: 'Error al crear respaldo' });
+    }
+});
+
+app.get('/api/backup/list', authenticateToken, (req, res) => {
+    if (req.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Permisos insuficientes' });
+    }
+    
+    const backupDir = path.join(__dirname, 'backups');
+    
+    if (!fs.existsSync(backupDir)) {
+        return res.json([]);
+    }
+    
+    try {
+        const files = fs.readdirSync(backupDir)
+            .filter(file => file.endsWith('.db'))
+            .map(file => {
+                const stats = fs.statSync(path.join(backupDir, file));
+                return {
+                    filename: file,
+                    created_at: stats.birthtime,
+                    size: stats.size
+                };
+            })
+            .sort((a, b) => b.created_at - a.created_at);
+        
+        res.json(files);
+    } catch (error) {
+        res.status(500).json({ error: 'Error al listar respaldos' });
+    }
+});
+
+// DASHBOARD STATS
+app.get('/api/dashboard/stats', authenticateToken, (req, res) => {
+    const stats = {};
+    let completedQueries = 0;
+    const totalQueries = 4;
+    
+    const sendResponse = () => {
+        completedQueries++;
+        if (completedQueries === totalQueries) {
+            res.json(stats);
+        }
+    };
+    
+    // Ventas del mes
+    db.get(
+        `SELECT SUM(total_amount) as monthly_sales, COUNT(*) as sales_count
+         FROM sales WHERE strftime('%Y-%m', sale_date) = strftime('%Y-%m', 'now')`,
+        [],
+        (err, row) => {
+            if (!err) {
+                stats.monthly_sales = row.monthly_sales || 0;
+                stats.sales_count = row.sales_count || 0;
+            }
+            sendResponse();
+        }
+    );
+    
+    // Total productos en stock
+    db.get(
+        'SELECT SUM(current_stock) as total_stock, COUNT(*) as product_count FROM products WHERE is_active = 1',
+        [],
+        (err, row) => {
+            if (!err) {
+                stats.total_stock = row.total_stock || 0;
+                stats.product_count = row.product_count || 0;
+            }
+            sendResponse();
+        }
+    );
+    
+    // Valor del inventario
+    db.get(
+        'SELECT SUM(current_stock * cost_price) as inventory_value FROM products WHERE is_active = 1',
+        [],
+        (err, row) => {
+            if (!err) {
+                stats.inventory_value = row.inventory_value || 0;
+            }
+            sendResponse();
+        }
+    );
+    
+    // Productos con stock bajo
+    db.get(
+        'SELECT COUNT(*) as low_stock_count FROM products WHERE current_stock <= minimum_stock AND is_active = 1',
+        [],
+        (err, row) => {
+            if (!err) {
+                stats.low_stock_count = row.low_stock_count || 0;
+            }
+            sendResponse();
+        }
+    );
 });
 
 // Health check
@@ -389,7 +712,8 @@ app.get('/api/health', (req, res) => {
     res.json({ 
         status: 'OK', 
         timestamp: new Date().toISOString(),
-        database: 'Connected' 
+        database: 'Connected',
+        version: '1.0.0'
     });
 });
 
@@ -397,6 +721,7 @@ app.get('/api/health', (req, res) => {
 app.listen(PORT, () => {
     console.log(`Servidor backend ejecutándose en puerto ${PORT}`);
     console.log(`Base de datos SQLite ubicada en: ${dbPath}`);
+    console.log(`API disponible en: http://localhost:${PORT}/api`);
 });
 
 // Manejo de cierre graceful

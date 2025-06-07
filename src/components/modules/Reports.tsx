@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,56 +8,129 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from "recharts";
 import { FileText, Download, Calendar } from "lucide-react";
+import { useApi, useApiMutation } from "@/hooks/useApi";
+import { useToast } from "@/hooks/use-toast";
+
+interface SalesReportData {
+  date: string;
+  total_sales: number;
+  sales_count: number;
+}
+
+interface ProductReportData {
+  name: string;
+  current_stock: number;
+  minimum_stock: number;
+  stock_value: number;
+  stock_status: string;
+}
+
+interface DashboardStats {
+  monthly_sales: number;
+  sales_count: number;
+  total_stock: number;
+  product_count: number;
+  inventory_value: number;
+  low_stock_count: number;
+}
 
 const Reports = () => {
+  const { toast } = useToast();
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [reportType, setReportType] = useState("");
 
-  // Datos simulados para reportes
-  const salesByMonth = [
-    { month: "Enero", ventas: 65000, productos: 120 },
-    { month: "Febrero", ventas: 78000, productos: 145 },
-    { month: "Marzo", ventas: 85000, productos: 160 },
-    { month: "Abril", ventas: 91000, productos: 175 },
-    { month: "Mayo", ventas: 87000, productos: 168 },
-    { month: "Junio", ventas: 95000, productos: 182 },
-  ];
+  // API hooks
+  const { data: dashboardStats } = useApi<DashboardStats>('/dashboard/stats');
+  const { data: salesReport } = useApi<SalesReportData[]>(`/reports/sales?from_date=${dateFrom}&to_date=${dateTo}`, [dateFrom, dateTo]);
+  const { data: productsReport } = useApi<ProductReportData[]>('/reports/products');
+  const { mutate: exportData } = useApiMutation();
 
-  const productsSold = [
-    { name: "Laptops", value: 35, color: "#3b82f6" },
-    { name: "Accesorios", value: 28, color: "#10b981" },
-    { name: "Monitores", value: 20, color: "#f59e0b" },
-    { name: "Software", value: 10, color: "#ef4444" },
-    { name: "Otros", value: 7, color: "#6b7280" },
-  ];
+  // Configurar fechas por defecto
+  useEffect(() => {
+    const today = new Date();
+    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+    setDateFrom(firstDay.toISOString().split('T')[0]);
+    setDateTo(today.toISOString().split('T')[0]);
+  }, []);
 
-  const topCustomers = [
-    { name: "Empresa ABC", total: 25000 },
-    { name: "Juan Pérez", total: 18500 },
-    { name: "María González", total: 15200 },
-    { name: "Tech Solutions", total: 12800 },
-    { name: "Innovation Corp", total: 11500 },
-  ];
+  // Procesar datos para gráficos
+  const salesByMonth = salesReport?.map(item => ({
+    month: new Date(item.date).toLocaleDateString('es', { month: 'short', day: 'numeric' }),
+    ventas: item.total_sales,
+    productos: item.sales_count
+  })) || [];
 
-  const inventoryValue = [
-    { category: "Computadoras", value: 180000 },
-    { category: "Accesorios", value: 45000 },
-    { category: "Monitores", value: 32000 },
-    { category: "Software", value: 28000 },
-    { category: "Otros", value: 15000 },
-  ];
+  const productsByStatus = productsReport?.reduce((acc, product) => {
+    const status = product.stock_status;
+    const existing = acc.find(item => item.name === status);
+    if (existing) {
+      existing.value += 1;
+    } else {
+      acc.push({ name: status, value: 1, color: getStatusColor(status) });
+    }
+    return acc;
+  }, [] as { name: string; value: number; color: string }[]) || [];
 
-  const generateReport = () => {
-    alert(`Generando reporte de ${reportType} desde ${dateFrom} hasta ${dateTo}`);
+  const inventoryValue = productsReport?.reduce((acc, product) => {
+    acc.push({
+      category: product.name.split(' ')[0] + '...', // Simplificar nombres
+      value: product.stock_value
+    });
+    return acc;
+  }, [] as { category: string; value: number }[]).slice(0, 10) || []; // Top 10
+
+  function getStatusColor(status: string) {
+    switch (status) {
+      case 'Bajo': return '#ef4444';
+      case 'Medio': return '#f59e0b';
+      case 'Normal': return '#10b981';
+      default: return '#6b7280';
+    }
+  }
+
+  const generateReport = async () => {
+    try {
+      toast({
+        title: "Generando reporte",
+        description: `Reporte de ${reportType} desde ${dateFrom} hasta ${dateTo}`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudo generar el reporte",
+        variant: "destructive",
+      });
+    }
   };
 
   const exportToPDF = () => {
-    alert("Exportando reporte a PDF...");
+    toast({
+      title: "Exportando a PDF",
+      description: "El reporte se está generando...",
+    });
   };
 
   const exportToCSV = () => {
-    alert("Exportando reporte a CSV...");
+    if (salesReport && salesReport.length > 0) {
+      const csvContent = [
+        ['Fecha', 'Ventas Totales', 'Número de Ventas'],
+        ...salesReport.map(row => [row.date, row.total_sales.toString(), row.sales_count.toString()])
+      ].map(row => row.join(',')).join('\n');
+      
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `reporte-ventas-${dateFrom}-${dateTo}.csv`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+      
+      toast({
+        title: "Exportado a CSV",
+        description: "El archivo ha sido descargado",
+      });
+    }
   };
 
   return (
@@ -141,36 +214,36 @@ const Reports = () => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
-                <CardTitle>Ventas Mensuales</CardTitle>
-                <CardDescription>Evolución de ventas e ítems vendidos</CardDescription>
+                <CardTitle>Ventas por Período</CardTitle>
+                <CardDescription>Evolución de ventas en el período seleccionado</CardDescription>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={salesByMonth}>
+                  <LineChart data={salesByMonth}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="month" />
                     <YAxis />
                     <Tooltip formatter={(value, name) => [
-                      name === 'ventas' ? `$${value.toLocaleString()}` : `${value} productos`,
-                      name === 'ventas' ? 'Ventas' : 'Productos'
+                      name === 'ventas' ? `$${value.toLocaleString()}` : `${value} transacciones`,
+                      name === 'ventas' ? 'Ventas' : 'Transacciones'
                     ]} />
-                    <Bar dataKey="ventas" fill="#3b82f6" />
+                    <Line type="monotone" dataKey="ventas" stroke="#3b82f6" strokeWidth={2} />
                     <Bar dataKey="productos" fill="#10b981" />
-                  </BarChart>
+                  </LineChart>
                 </ResponsiveContainer>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
-                <CardTitle>Distribución de Productos Vendidos</CardTitle>
-                <CardDescription>Porcentaje de ventas por categoría</CardDescription>
+                <CardTitle>Estado del Stock</CardTitle>
+                <CardDescription>Distribución de productos por estado de stock</CardDescription>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
                   <PieChart>
                     <Pie
-                      data={productsSold}
+                      data={productsByStatus}
                       cx="50%"
                       cy="50%"
                       outerRadius={100}
@@ -178,7 +251,7 @@ const Reports = () => {
                       dataKey="value"
                       label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                     >
-                      {productsSold.map((entry, index) => (
+                      {productsByStatus.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
@@ -189,34 +262,63 @@ const Reports = () => {
             </Card>
           </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Top 5 Clientes</CardTitle>
-              <CardDescription>Clientes con mayor volumen de compras</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {topCustomers.map((customer, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold">
-                        {index + 1}
-                      </div>
-                      <span className="font-medium">{customer.name}</span>
-                    </div>
-                    <span className="font-bold text-green-600">${customer.total.toLocaleString()}</span>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          {/* Métricas en tiempo real */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Ventas del Mes</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-600">
+                  ${dashboardStats?.monthly_sales?.toLocaleString() || 0}
+                </div>
+                <p className="text-sm text-slate-600">{dashboardStats?.sales_count || 0} transacciones</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Total Productos</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-blue-600">
+                  {dashboardStats?.product_count || 0}
+                </div>
+                <p className="text-sm text-slate-600">{dashboardStats?.total_stock || 0} en stock</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Valor Inventario</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-purple-600">
+                  ${dashboardStats?.inventory_value?.toLocaleString() || 0}
+                </div>
+                <p className="text-sm text-slate-600">valor total</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Alertas Stock</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-red-600">
+                  {dashboardStats?.low_stock_count || 0}
+                </div>
+                <p className="text-sm text-slate-600">productos bajo mínimo</p>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         <TabsContent value="inventory" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Valor del Inventario por Categoría</CardTitle>
-              <CardDescription>Distribución del valor total del inventario</CardDescription>
+              <CardTitle>Valor del Inventario por Producto</CardTitle>
+              <CardDescription>Top 10 productos por valor de inventario</CardDescription>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={400}>
@@ -230,6 +332,32 @@ const Reports = () => {
               </ResponsiveContainer>
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Productos con Stock Bajo</CardTitle>
+              <CardDescription>Productos que requieren reabastecimiento</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {productsReport?.filter(p => p.stock_status === 'Bajo').map((product, index) => (
+                  <div key={index} className="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-200">
+                    <div>
+                      <div className="font-medium text-slate-800">{product.name}</div>
+                      <div className="text-sm text-slate-600">
+                        Stock: {product.current_stock} | Mínimo: {product.minimum_stock}
+                      </div>
+                    </div>
+                    <div className="text-red-600 font-bold">
+                      ${product.stock_value.toLocaleString()}
+                    </div>
+                  </div>
+                )) || (
+                  <div className="text-slate-500 text-center py-4">No hay productos con stock bajo</div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="customers" className="space-y-6">
@@ -240,7 +368,11 @@ const Reports = () => {
             </CardHeader>
             <CardContent>
               <div className="text-center text-slate-500 py-8">
-                Reportes de clientes - Funcionalidad en desarrollo
+                Los reportes de clientes se implementarán en la siguiente versión.
+                <br />
+                <Button variant="outline" className="mt-4">
+                  Solicitar Funcionalidad
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -255,16 +387,22 @@ const Reports = () => {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="text-center p-4 bg-green-50 rounded-lg">
-                  <div className="text-2xl font-bold text-green-600">$521,000</div>
-                  <div className="text-sm text-green-700">Ingresos Totales</div>
+                  <div className="text-2xl font-bold text-green-600">
+                    ${dashboardStats?.monthly_sales?.toLocaleString() || 0}
+                  </div>
+                  <div className="text-sm text-green-700">Ingresos del Mes</div>
                 </div>
                 <div className="text-center p-4 bg-blue-50 rounded-lg">
-                  <div className="text-2xl font-bold text-blue-600">$315,200</div>
-                  <div className="text-sm text-blue-700">Costos de Productos</div>
+                  <div className="text-2xl font-bold text-blue-600">
+                    ${dashboardStats?.inventory_value?.toLocaleString() || 0}
+                  </div>
+                  <div className="text-sm text-blue-700">Valor del Inventario</div>
                 </div>
                 <div className="text-center p-4 bg-purple-50 rounded-lg">
-                  <div className="text-2xl font-bold text-purple-600">$205,800</div>
-                  <div className="text-sm text-purple-700">Margen Bruto</div>
+                  <div className="text-2xl font-bold text-purple-600">
+                    {dashboardStats?.sales_count || 0}
+                  </div>
+                  <div className="text-sm text-purple-700">Transacciones</div>
                 </div>
               </div>
             </CardContent>

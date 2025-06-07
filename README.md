@@ -1,209 +1,265 @@
 
 # Sistema Administrativo de Escritorio
 
-Sistema completo de gestión administrativo para Windows desarrollado con React + Electron (frontend) y Node.js + SQLite (backend).
+Sistema administrativo completo desarrollado con React + Vite (frontend), Node.js + SQLite (backend) y Electron (aplicación de escritorio). Diseñado para gestión de inventario, ventas, reportes y configuración empresarial.
 
 ## 🚀 Características
 
 ### Módulos Principales
-- **Dashboard**: Panel de control con KPIs y gráficos en tiempo real
-- **Gestión de Inventario**: Control completo de productos, stock y movimientos
-- **Gestión de Ventas**: Procesamiento de pedidos y gestión de clientes
-- **Reportes y Análisis**: Gráficos detallados y exportación de reportes
-- **Configuración**: Administración de usuarios y configuraciones del sistema
+- **Dashboard**: Panel de control con métricas en tiempo real
+- **Inventario**: Gestión completa de productos, stock y movimientos
+- **Ventas**: Procesamiento de ventas y gestión de clientes
+- **Reportes**: Análisis y reportes con gráficos interactivos
+- **Configuración**: Administración de usuarios, configuración del sistema y respaldos
 
 ### Tecnologías
-- **Frontend**: React + Vite + TypeScript + Tailwind CSS + shadcn/ui
-- **Backend**: Node.js + Express + SQLite
+- **Frontend**: React 18, TypeScript, Tailwind CSS, Shadcn/UI
+- **Backend**: Node.js, Express, SQLite
+- **Desktop**: Electron
 - **Gráficos**: Recharts
-- **Base de Datos**: SQLite (archivo local)
+- **Autenticación**: JWT
 
-## 📦 Instalación y Configuración
+## 📋 Requisitos del Sistema
 
-### Requisitos Previos
 - Node.js 16 o superior
 - npm o yarn
+- Sistema operativo: Windows, macOS o Linux
 
-### 1. Clonar el Repositorio
+## 🛠️ Instalación y Configuración
+
+### 1. Clonar e Instalar Dependencias
+
 ```bash
-git clone <repository-url>
+# Clonar el repositorio
+git clone <url-del-repositorio>
 cd sistema-administrativo
-```
 
-### 2. Configurar el Backend
-```bash
+# Instalar dependencias del frontend
+npm install
+
+# Instalar dependencias del backend
 cd backend
 npm install
-npm run init-db  # Inicializar base de datos SQLite
-npm run dev      # Iniciar servidor en modo desarrollo
+cd ..
 ```
 
-El backend se ejecutará en `http://localhost:3001`
+### 2. Configurar Base de Datos
 
-### 3. Configurar el Frontend
 ```bash
-# En otra terminal, desde la raíz del proyecto
-npm install
-npm run dev      # Iniciar aplicación React
+# Desde la carpeta backend, inicializar la base de datos
+cd backend
+npm run init-db
+cd ..
 ```
 
-El frontend se ejecutará en `http://localhost:8080`
+### 3. Modo Desarrollo
 
-## 🗄️ Base de Datos
+#### Opción A: Desarrollo Web (Recomendado para desarrollo)
 
-### Estructura de la Base de Datos SQLite
-- **users**: Usuarios del sistema
-- **products**: Productos del inventario
-- **categories**: Categorías de productos
-- **suppliers**: Proveedores
-- **customers**: Clientes
-- **sales**: Ventas realizadas
-- **sale_details**: Detalles de cada venta
-- **inventory_movements**: Movimientos de stock
-- **system_config**: Configuraciones del sistema
+```bash
+# Terminal 1: Iniciar backend
+cd backend
+npm run dev
 
-### Ubicación de la Base de Datos
-- **Archivo**: `backend/database/sistema.db`
-- **Schema**: `src/database/schema.sql`
+# Terminal 2: Iniciar frontend
+npm run dev
+```
 
-## 🔐 Autenticación
+La aplicación estará disponible en `http://localhost:5173`
 
-### Credenciales por Defecto
+#### Opción B: Desarrollo con Electron
+
+```bash
+# Terminal 1: Iniciar backend
+cd backend
+npm start
+
+# Terminal 2: Iniciar frontend
+npm run dev
+
+# Terminal 3: Iniciar Electron (después de que el frontend esté corriendo)
+npm run electron-dev
+```
+
+### 4. Construcción para Producción
+
+```bash
+# Construir la aplicación web
+npm run build
+
+# Para construir la aplicación de escritorio (requiere dependencias adicionales)
+npm install electron electron-builder --save-dev
+npm run build-electron
+```
+
+## 👤 Credenciales por Defecto
+
 - **Usuario**: admin
 - **Contraseña**: admin
 
-## 🌐 API Endpoints
+## 🗄️ Estructura de la Base de Datos
+
+La base de datos SQLite incluye las siguientes tablas principales:
+
+- `users` - Usuarios del sistema
+- `products` - Productos del inventario
+- `categories` - Categorías de productos
+- `suppliers` - Proveedores
+- `customers` - Clientes
+- `sales` - Registro de ventas
+- `sale_details` - Detalles de las ventas
+- `inventory_movements` - Movimientos de inventario
+- `system_config` - Configuración del sistema
+
+## 🔧 API Backend
+
+El servidor backend expone las siguientes rutas principales:
 
 ### Autenticación
 - `POST /api/auth/login` - Iniciar sesión
+- `POST /api/auth/register` - Registrar usuario (admin)
 
 ### Productos
 - `GET /api/products` - Listar productos
 - `POST /api/products` - Crear producto
 - `PUT /api/products/:id` - Actualizar producto
 
-### Clientes
-- `GET /api/customers` - Listar clientes
-- `POST /api/customers` - Crear cliente
-
 ### Ventas
 - `GET /api/sales` - Listar ventas
 - `POST /api/sales` - Crear venta
 
-### Inventario
-- `POST /api/inventory/movement` - Registrar movimiento de stock
-
-### Dashboard
-- `GET /api/dashboard/stats` - Estadísticas del dashboard
-
-## 🔧 Configuración para Producción
-
-### 1. Variables de Entorno
-Crear archivo `.env` en el directorio backend:
-```env
-PORT=3001
-NODE_ENV=production
-DB_PATH=./database/sistema.db
-```
-
-### 2. Construcción para Producción
-```bash
-# Frontend
-npm run build
-
-# Backend
-cd backend
-npm start
-```
-
-### 3. Deployment en Red LAN
-
-#### Configuración del Servidor (PC Principal)
-1. Instalar Node.js en la PC servidor
-2. Copiar el directorio `backend` a la PC servidor
-3. Ejecutar `npm install` y `npm start`
-4. Configurar firewall para permitir puerto 3001
-5. Obtener IP local de la PC servidor
-
-#### Configuración de Clientes
-1. Actualizar la URL del API en el frontend para apuntar a la IP del servidor
-2. Distribuir la aplicación Electron a las PCs cliente
-
-## 📊 Funcionalidades Detalladas
-
-### Dashboard
-- KPIs de ventas mensuales
-- Valor total del inventario
-- Alertas de stock bajo
-- Gráficos de tendencias de ventas
-- Top productos más vendidos
-
-### Inventario
-- Alta/baja/modificación de productos
-- Control de stock en tiempo real
-- Gestión de categorías y proveedores
-- Movimientos de entrada y salida
-- Alertas de reabastecimiento
-
-### Ventas
-- Procesamiento de pedidos
-- Gestión de clientes
-- Múltiples métodos de pago
-- Cálculo automático de impuestos
-- Historial de transacciones
+### Clientes
+- `GET /api/customers` - Listar clientes
+- `POST /api/customers` - Crear cliente
 
 ### Reportes
-- Reportes de ventas por período
-- Análisis de inventario
-- Top clientes
-- Exportación a PDF y CSV
-- Gráficos interactivos
+- `GET /api/reports/sales` - Reporte de ventas
+- `GET /api/reports/products` - Reporte de productos
+- `GET /api/dashboard/stats` - Estadísticas del dashboard
+
+### Configuración
+- `GET /api/config` - Obtener configuración
+- `POST /api/config` - Guardar configuración
+
+### Respaldos
+- `POST /api/backup/create` - Crear respaldo
+- `GET /api/backup/list` - Listar respaldos
+
+## 🚀 Funcionalidades Principales
+
+### Gestión de Inventario
+- ✅ CRUD completo de productos
+- ✅ Control de stock en tiempo real
+- ✅ Alertas de stock bajo
+- ✅ Movimientos de inventario
+- ✅ Categorías y proveedores
+
+### Gestión de Ventas
+- ✅ Procesamiento de ventas
+- ✅ Gestión de clientes
+- ✅ Múltiples métodos de pago
+- ✅ Historial de transacciones
+
+### Reportes y Análisis
+- ✅ Dashboard con métricas en tiempo real
+- ✅ Gráficos interactivos
+- ✅ Reportes por período
+- ✅ Exportación a CSV
+- ✅ Análisis de inventario
+
+### Configuración del Sistema
+- ✅ Gestión de usuarios
+- ✅ Configuración general
+- ✅ Respaldos automáticos
+- ✅ Configuración de impuestos
+
+## 🔒 Seguridad
+
+- Autenticación JWT
+- Encriptación de contraseñas con bcrypt
+- Validación de datos en backend
+- Control de acceso por roles
+- Tokens con expiración
+
+## 🌐 Red LAN
+
+El sistema está diseñado para funcionar en red LAN:
+
+1. **Servidor**: Ejecutar el backend en una PC central
+2. **Clientes**: Conectar múltiples clientes a la IP del servidor
+3. **Configuración**: Cambiar la URL de la API en el frontend para apuntar a la IP del servidor
+
+### Configuración para Red LAN
+
+En el archivo `src/hooks/useApi.ts`, cambiar:
+```typescript
+const API_BASE_URL = 'http://[IP-DEL-SERVIDOR]:3001/api';
+```
+
+## 📝 Próximas Características
+
+- [ ] Facturación electrónica
+- [ ] Integración con códigos de barras
+- [ ] Módulo de compras
+- [ ] Notificaciones push
+- [ ] Sincronización en la nube
+- [ ] Aplicación móvil
 
 ## 🛠️ Desarrollo
 
+### Scripts Disponibles
+
+```bash
+# Frontend
+npm run dev          # Servidor de desarrollo
+npm run build        # Construir para producción
+npm run preview      # Vista previa de producción
+
+# Backend
+npm start            # Iniciar servidor
+npm run dev          # Servidor con nodemon
+npm run init-db      # Inicializar base de datos
+
+# Electron
+npm run electron-dev # Desarrollo con Electron
+npm run build-electron # Construir aplicación de escritorio
+```
+
 ### Estructura del Proyecto
+
 ```
 sistema-administrativo/
 ├── src/                    # Frontend React
-│   ├── components/        # Componentes React
-│   ├── pages/            # Páginas principales
-│   ├── database/         # Schema de BD
-│   └── ...
-├── backend/              # Backend Node.js
-│   ├── server.js        # Servidor principal
-│   ├── database/        # Archivos SQLite
-│   └── scripts/         # Scripts de utilidad
-└── README.md
+│   ├── components/         # Componentes React
+│   ├── hooks/             # Hooks personalizados
+│   ├── pages/             # Páginas principales
+│   └── database/          # Schema de base de datos
+├── backend/               # Servidor Node.js
+│   ├── database/          # Base de datos SQLite
+│   ├── scripts/           # Scripts de utilidad
+│   └── server.js          # Servidor principal
+├── public/                # Archivos estáticos
+└── package.json           # Dependencias del proyecto
 ```
 
-### Scripts Disponibles
-```bash
-# Frontend
-npm run dev          # Desarrollo
-npm run build        # Construcción
-npm run preview      # Vista previa
+## 🤝 Contribución
 
-# Backend
-npm run dev          # Desarrollo con nodemon
-npm start            # Producción
-npm run init-db      # Inicializar BD
-```
+1. Fork el proyecto
+2. Crear una rama para la funcionalidad
+3. Commit los cambios
+4. Push a la rama
+5. Abrir un Pull Request
 
-## 🔄 Funcionalidades Futuras (Roadmap)
+## 📄 Licencia
 
-- [ ] Integración con código de barras
-- [ ] Módulo de compras a proveedores
-- [ ] Sistema de roles y permisos avanzado
-- [ ] Reportes avanzados con filtros personalizados
-- [ ] Backup automático de base de datos
-- [ ] Integración con impresoras de tickets
-- [ ] API para integración con sistemas externos
-- [ ] Módulo de contabilidad básica
+Este proyecto está bajo la Licencia MIT.
 
 ## 📞 Soporte
 
-Para soporte técnico o consultas sobre el sistema, contactar al equipo de desarrollo.
+Para soporte técnico o consultas:
+- Crear un issue en el repositorio
+- Contactar al equipo de desarrollo
 
 ---
 
-**Sistema Administrativo v1.0** - Desarrollado para gestión empresarial eficiente
+**Nota**: Este sistema está diseñado para uso empresarial interno. Asegúrese de configurar adecuadamente la seguridad antes de usar en producción.

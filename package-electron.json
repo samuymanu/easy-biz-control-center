@@ -1,0 +1,51 @@
+
+{
+  "name": "sistema-administrativo-desktop",
+  "version": "1.0.0",
+  "description": "Sistema Administrativo de Escritorio con React, Node.js y SQLite",
+  "main": "public/electron.js",
+  "homepage": "./",
+  "scripts": {
+    "electron": "electron .",
+    "electron-dev": "ELECTRON_IS_DEV=true electron .",
+    "build-electron": "npm run build && electron-builder",
+    "dist": "npm run build && electron-builder --publish=never",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "build": {
+    "appId": "com.empresa.sistema-administrativo",
+    "productName": "Sistema Administrativo",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "build/**/*",
+      "backend/**/*",
+      "node_modules/**/*",
+      "public/electron.js"
+    ],
+    "mac": {
+      "category": "public.app-category.business"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico"
+    },
+    "linux": {
+      "target": "AppImage",
+      "category": "Office"
+    }
+  },
+  "devDependencies": {
+    "electron": "^22.0.0",
+    "electron-builder": "^24.0.0"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "sqlite3": "^5.1.6",
+    "cors": "^2.8.5",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.2",
+    "dotenv": "^16.3.1"
+  }
+}

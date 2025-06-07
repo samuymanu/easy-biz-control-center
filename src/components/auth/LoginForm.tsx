@@ -7,9 +7,10 @@ import { Label } from "@/components/ui/label";
 
 interface LoginFormProps {
   onLogin: (credentials: { username: string; password: string }) => void;
+  loading?: boolean;
 }
 
-const LoginForm = ({ onLogin }: LoginFormProps) => {
+const LoginForm = ({ onLogin, loading = false }: LoginFormProps) => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
@@ -40,6 +41,7 @@ const LoginForm = ({ onLogin }: LoginFormProps) => {
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="Ingrese su usuario"
                 required
+                disabled={loading}
               />
             </div>
             
@@ -52,16 +54,32 @@ const LoginForm = ({ onLogin }: LoginFormProps) => {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Ingrese su contraseña"
                 required
+                disabled={loading}
               />
             </div>
 
-            <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700">
-              Iniciar Sesión
+            <Button 
+              type="submit" 
+              className="w-full bg-blue-600 hover:bg-blue-700"
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Iniciando sesión...
+                </>
+              ) : (
+                "Iniciar Sesión"
+              )}
             </Button>
           </form>
 
           <div className="mt-4 p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
             <strong>Demo:</strong> Usuario: admin, Contraseña: admin
+          </div>
+          
+          <div className="mt-4 p-3 bg-yellow-50 rounded-lg text-sm text-yellow-700">
+            <strong>Importante:</strong> Asegúrese de que el servidor backend esté ejecutándose en el puerto 3001
           </div>
         </CardContent>
       </Card>
