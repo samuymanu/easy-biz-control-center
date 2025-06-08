@@ -138,10 +138,7 @@ CREATE TABLE IF NOT EXISTS system_config (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- Insertar datos iniciales
-INSERT OR IGNORE INTO users (username, password_hash, email, full_name, role) 
-VALUES ('admin', 'admin', 'admin@sistema.com', 'Administrador', 'admin');
-
+-- Insertar categorías por defecto
 INSERT OR IGNORE INTO categories (name, description) VALUES 
 ('Computadoras', 'Laptops, desktops y equipos de cómputo'),
 ('Accesorios', 'Mouse, teclados, cables y accesorios varios'),
@@ -149,6 +146,7 @@ INSERT OR IGNORE INTO categories (name, description) VALUES
 ('Software', 'Licencias de software y aplicaciones'),
 ('Otros', 'Productos varios no categorizados');
 
+-- Insertar configuración por defecto
 INSERT OR IGNORE INTO system_config (config_key, config_value, description) VALUES 
 ('company_name', 'Mi Empresa S.A.', 'Nombre de la empresa'),
 ('tax_rate', '15', 'Porcentaje de impuestos por defecto'),

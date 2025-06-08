@@ -1,4 +1,3 @@
-
 const express = require('express');
 const sqlite3 = require('sqlite3').verbose();
 const cors = require('cors');
@@ -58,27 +57,60 @@ function initializeDatabase() {
         const schema = fs.readFileSync(schemaPath, 'utf8');
         const statements = schema.split(';').filter(stmt => stmt.trim().length > 0);
         
-        statements.forEach((statement, index) => {
-            db.run(statement, (err) => {
-                if (err) {
-                    console.error(`Error ejecutando statement ${index + 1}:`, err);
-                } else {
-                    console.log(`Statement ${index + 1} ejecutado correctamente`);
-                }
+        db.serialize(() => {
+            statements.forEach((statement, index) => {
+                db.run(statement, (err) => {
+                    if (err) {
+                        console.error(`Error ejecutando statement ${index + 1}:`, err);
+                    } else {
+                        console.log(`Statement ${index + 1} ejecutado correctamente`);
+                    }
+                });
             });
+            
+            // Crear usuario admin por defecto después de que las tablas estén creadas
+            setTimeout(() => {
+                createDefaultAdmin();
+            }, 1000);
         });
-        
-        // Crear usuario admin por defecto
-        const hashedPassword = bcrypt.hashSync('admin', 10);
-        db.run(
-            'INSERT OR IGNORE INTO users (username, password_hash, email, full_name, role) VALUES (?, ?, ?, ?, ?)',
-            ['admin', hashedPassword, 'admin@sistema.com', 'Administrador', 'admin']
-        );
         
         console.log('Base de datos inicializada correctamente');
     } catch (error) {
         console.error('Error leyendo el archivo schema.sql:', error);
     }
+}
+
+// Función para crear el usuario admin por defecto
+function createDefaultAdmin() {
+    // Primero verificar si ya existe un usuario admin
+    db.get('SELECT * FROM users WHERE username = ?', ['admin'], (err, row) => {
+        if (err) {
+            console.error('Error verificando usuario admin:', err);
+            return;
+        }
+        
+        if (!row) {
+            // No existe, crear el usuario admin
+            const hashedPassword = bcrypt.hashSync('admin', 10);
+            db.run(
+                'INSERT INTO users (username, password_hash, email, full_name, role) VALUES (?, ?, ?, ?, ?)',
+                ['admin', hashedPassword, 'admin@sistema.com', 'Administrador', 'admin'],
+                function(err) {
+                    if (err) {
+                        console.error('Error creando usuario admin:', err);
+                    } else {
+                        console.log('✓ Usuario administrador creado correctamente');
+                        console.log('  Usuario: admin');
+                        console.log('  Contraseña: admin');
+                    }
+                }
+            );
+        } else {
+            console.log('✓ Usuario administrador ya existe');
+            console.log('  Usuario: admin');
+            console.log('  Contraseña: admin');
+        }
+    });
 }
 
 // AUTH ROUTES
