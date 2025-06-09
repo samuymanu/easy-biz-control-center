@@ -9,6 +9,12 @@ interface ApiState<T> {
   refetch: () => void;
 }
 
+interface ApiMutationState<T> {
+  data: T | null;
+  loading: boolean;
+  error: string | null;
+}
+
 class ApiClient {
   private token: string | null = null;
   
@@ -109,7 +115,7 @@ export function useApi<T>(endpoint: string, dependencies: any[] = []): ApiState<
 }
 
 export function useApiMutation<T, U = any>() {
-  const [state, setState] = useState<ApiState<T>>({
+  const [state, setState] = useState<ApiMutationState<T>>({
     data: null,
     loading: false,
     error: null,
