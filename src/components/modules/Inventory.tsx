@@ -1,12 +1,14 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Search, Edit, Package } from "lucide-react";
+import { Plus, Search, Edit, Package, AlertTriangle } from "lucide-react";
+import { useApi, useApiMutation } from "@/hooks/useApi";
+import { toast } from "sonner";
 import ProductModal from "@/components/inventory/ProductModal";
 import StockMovementModal from "@/components/inventory/StockMovementModal";
 
@@ -14,90 +16,111 @@ interface Product {
   id: string;
   sku: string;
   name: string;
-  category: string;
-  stock: number;
-  minStock: number;
-  costPrice: number;
-  salePrice: number;
-  supplier: string;
+  description?: string;
+  category_id: number;
+  category_name?: string;
+  supplier_id?: number;
+  supplier_name?: string;
+  cost_price: number;
+  sale_price: number;
+  current_stock: number;
+  minimum_stock: number;
+  maximum_stock?: number;
+  unit_of_measure?: string;
+  barcode?: string;
+  image_url?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+interface Category {
+  id: number;
+  name: string;
+  description?: string;
+}
+
+interface Supplier {
+  id: number;
+  name: string;
+  contact_person?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+}
+
+interface Movement {
+  id: number;
+  product_id: number;
+  product_name: string;
+  movement_type: string;
+  quantity: number;
+  reason: string;
+  username: string;
+  created_at: string;
 }
 
 const Inventory = () => {
-  const [products, setProducts] = useState<Product[]>([
-    {
-      id: "1",
-      sku: "LAP001",
-      name: "Laptop HP EliteBook 840",
-      category: "Computadoras",
-      stock: 15,
-      minStock: 5,
-      costPrice: 850,
-      salePrice: 1200,
-      supplier: "HP Inc."
-    },
-    {
-      id: "2",
-      sku: "MOU001",
-      name: "Mouse Logitech MX Master 3",
-      category: "Accesorios",
-      stock: 25,
-      minStock: 10,
-      costPrice: 65,
-      salePrice: 95,
-      supplier: "Logitech"
-    },
-    {
-      id: "3",
-      sku: "MON001",
-      name: "Monitor LG 24 pulgadas",
-      category: "Monitores",
-      stock: 8,
-      minStock: 3,
-      costPrice: 180,
-      salePrice: 250,
-      supplier: "LG Electronics"
-    }
-  ]);
-
   const [searchTerm, setSearchTerm] = useState("");
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [isStockModalOpen, setIsStockModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+
+  // API calls
+  const { data: products = [], loading: loadingProducts, error: errorProducts } = useApi<Product[]>('/products');
+  const { data: categories = [] } = useApi<Category[]>('/categories');
+  const { data: suppliers = [] } = useApi<Supplier[]>('/suppliers');
+  const { data: movements = [] } = useApi<Movement[]>('/inventory/movements');
+  
+  const { mutate: createProduct, loading: creatingProduct } = useApiMutation<Product>();
+  const { mutate: updateProduct, loading: updatingProduct } = useApiMutation<Product>();
+  const { mutate: createMovement, loading: creatingMovement } = useApiMutation<any>();
 
   const filteredProducts = products.filter(product =>
     product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     product.sku.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleAddProduct = (productData: Omit<Product, "id">) => {
-    const newProduct: Product = {
-      ...productData,
-      id: Date.now().toString()
-    };
-    setProducts([...products, newProduct]);
-    setIsProductModalOpen(false);
-  };
-
-  const handleEditProduct = (productData: Omit<Product, "id">) => {
-    if (selectedProduct) {
-      setProducts(products.map(p => p.id === selectedProduct.id ? { ...productData, id: selectedProduct.id } : p));
-      setSelectedProduct(null);
+  const handleAddProduct = async (productData: any) => {
+    try {
+      await createProduct('/products', productData);
+      toast.success('Producto creado correctamente');
       setIsProductModalOpen(false);
+      window.location.reload(); // Refresh to get updated data
+    } catch (error) {
+      toast.error('Error al crear producto');
     }
   };
 
-  const handleStockMovement = (productId: string, movement: { type: string; quantity: number; reason: string }) => {
-    setProducts(products.map(product => {
-      if (product.id === productId) {
-        const newStock = movement.type === 'entrada' 
-          ? product.stock + movement.quantity 
-          : product.stock - movement.quantity;
-        return { ...product, stock: Math.max(0, newStock) };
+  const handleEditProduct = async (productData: any) => {
+    if (selectedProduct) {
+      try {
+        await updateProduct(`/products/${selectedProduct.id}`, productData, 'PUT');
+        toast.success('Producto actualizado correctamente');
+        setSelectedProduct(null);
+        setIsProductModalOpen(false);
+        window.location.reload(); // Refresh to get updated data
+      } catch (error) {
+        toast.error('Error al actualizar producto');
       }
-      return product;
-    }));
-    setIsStockModalOpen(false);
-    setSelectedProduct(null);
+    }
+  };
+
+  const handleStockMovement = async (productId: string, movement: { type: string; quantity: number; reason: string }) => {
+    try {
+      await createMovement('/inventory/movement', {
+        product_id: productId,
+        movement_type: movement.type,
+        quantity: movement.quantity,
+        reason: movement.reason
+      });
+      toast.success('Movimiento registrado correctamente');
+      setIsStockModalOpen(false);
+      setSelectedProduct(null);
+      window.location.reload(); // Refresh to get updated data
+    } catch (error) {
+      toast.error('Error al registrar movimiento');
+    }
   };
 
   const getStockStatus = (stock: number, minStock: number) => {
@@ -105,6 +128,16 @@ const Inventory = () => {
     if (stock <= minStock * 1.5) return { status: "Medio", color: "bg-yellow-500" };
     return { status: "Bueno", color: "bg-green-500" };
   };
+
+  const lowStockProducts = products.filter(p => p.current_stock <= p.minimum_stock);
+
+  if (loadingProducts) {
+    return <div className="flex items-center justify-center h-64">Cargando productos...</div>;
+  }
+
+  if (errorProducts) {
+    return <div className="flex items-center justify-center h-64 text-red-500">Error: {errorProducts}</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -114,6 +147,53 @@ const Inventory = () => {
           <Plus className="h-4 w-4 mr-2" />
           Nuevo Producto
         </Button>
+      </div>
+
+      {/* KPIs */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Total Productos</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">{products.length}</div>
+            <p className="text-sm text-slate-600">productos activos</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Stock Total</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">
+              {products.reduce((sum, p) => sum + p.current_stock, 0)}
+            </div>
+            <p className="text-sm text-slate-600">unidades en stock</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Valor Inventario</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-purple-600">
+              ${products.reduce((sum, p) => sum + (p.current_stock * p.cost_price), 0).toLocaleString()}
+            </div>
+            <p className="text-sm text-slate-600">valor total</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Alertas Stock</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">{lowStockProducts.length}</div>
+            <p className="text-sm text-slate-600">productos con stock bajo</p>
+          </CardContent>
+        </Card>
       </div>
 
       <Tabs defaultValue="products" className="space-y-6">
@@ -151,7 +231,7 @@ const Inventory = () => {
           {/* Lista de productos */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredProducts.map((product) => {
-              const stockStatus = getStockStatus(product.stock, product.minStock);
+              const stockStatus = getStockStatus(product.current_stock, product.minimum_stock);
               
               return (
                 <Card key={product.id} className="hover:shadow-lg transition-shadow">
@@ -161,7 +241,7 @@ const Inventory = () => {
                         <CardTitle className="text-lg">{product.name}</CardTitle>
                         <CardDescription>SKU: {product.sku}</CardDescription>
                       </div>
-                      <Badge variant="secondary">{product.category}</Badge>
+                      <Badge variant="secondary">{product.category_name || 'Sin categoría'}</Badge>
                     </div>
                   </CardHeader>
                   <CardContent>
@@ -169,7 +249,7 @@ const Inventory = () => {
                       <div className="flex justify-between">
                         <span className="text-sm text-slate-600">Stock:</span>
                         <div className="flex items-center gap-2">
-                          <span className="font-bold">{product.stock}</span>
+                          <span className="font-bold">{product.current_stock}</span>
                           <div className={`w-2 h-2 rounded-full ${stockStatus.color}`}></div>
                           <span className="text-xs">{stockStatus.status}</span>
                         </div>
@@ -177,12 +257,12 @@ const Inventory = () => {
                       
                       <div className="flex justify-between">
                         <span className="text-sm text-slate-600">Precio venta:</span>
-                        <span className="font-bold text-green-600">${product.salePrice}</span>
+                        <span className="font-bold text-green-600">${product.sale_price}</span>
                       </div>
                       
                       <div className="flex justify-between">
                         <span className="text-sm text-slate-600">Proveedor:</span>
-                        <span className="text-sm">{product.supplier}</span>
+                        <span className="text-sm">{product.supplier_name || 'Sin proveedor'}</span>
                       </div>
 
                       <div className="flex gap-2 pt-2">
@@ -224,8 +304,30 @@ const Inventory = () => {
               <CardDescription>Registro de entradas y salidas de inventario</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-center text-slate-500 py-8">
-                Historial de movimientos - Funcionalidad en desarrollo
+              <div className="space-y-4">
+                {movements.length === 0 ? (
+                  <div className="text-center text-slate-500 py-8">
+                    No hay movimientos registrados
+                  </div>
+                ) : (
+                  movements.slice(0, 10).map((movement) => (
+                    <div key={movement.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                      <div>
+                        <div className="font-medium">{movement.product_name}</div>
+                        <div className="text-sm text-slate-600">
+                          {movement.movement_type === 'entrada' ? 'Entrada' : 'Salida'} - {movement.quantity} unidades
+                        </div>
+                        <div className="text-xs text-slate-500">{movement.reason}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm text-slate-600">{movement.username}</div>
+                        <div className="text-xs text-slate-500">
+                          {new Date(movement.created_at).toLocaleDateString()}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </CardContent>
           </Card>
@@ -239,19 +341,35 @@ const Inventory = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {products.filter(p => p.stock <= p.minStock).map((product) => (
-                  <div key={product.id} className="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-200">
-                    <div>
-                      <div className="font-medium text-slate-800">{product.name}</div>
-                      <div className="text-sm text-slate-600">
-                        Stock: {product.stock} | Mínimo: {product.minStock}
-                      </div>
-                    </div>
-                    <Button size="sm" variant="destructive">
-                      Reabastecer
-                    </Button>
+                {lowStockProducts.length === 0 ? (
+                  <div className="text-center text-slate-500 py-8">
+                    No hay productos con stock bajo
                   </div>
-                ))}
+                ) : (
+                  lowStockProducts.map((product) => (
+                    <div key={product.id} className="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-200">
+                      <div className="flex items-center gap-3">
+                        <AlertTriangle className="h-5 w-5 text-red-500" />
+                        <div>
+                          <div className="font-medium text-slate-800">{product.name}</div>
+                          <div className="text-sm text-slate-600">
+                            Stock: {product.current_stock} | Mínimo: {product.minimum_stock}
+                          </div>
+                        </div>
+                      </div>
+                      <Button 
+                        size="sm" 
+                        variant="destructive"
+                        onClick={() => {
+                          setSelectedProduct(product);
+                          setIsStockModalOpen(true);
+                        }}
+                      >
+                        Reabastecer
+                      </Button>
+                    </div>
+                  ))
+                )}
               </div>
             </CardContent>
           </Card>
@@ -267,6 +385,9 @@ const Inventory = () => {
         }}
         onSave={selectedProduct ? handleEditProduct : handleAddProduct}
         product={selectedProduct}
+        categories={categories}
+        suppliers={suppliers}
+        loading={creatingProduct || updatingProduct}
       />
 
       <StockMovementModal
@@ -277,6 +398,7 @@ const Inventory = () => {
         }}
         onSave={handleStockMovement}
         product={selectedProduct}
+        loading={creatingMovement}
       />
     </div>
   );
