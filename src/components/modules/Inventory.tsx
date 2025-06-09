@@ -1,5 +1,4 @@
-
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -66,11 +65,17 @@ const Inventory = () => {
   const [isStockModalOpen, setIsStockModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
-  // API calls
-  const { data: products = [], loading: loadingProducts, error: errorProducts } = useApi<Product[]>('/products');
-  const { data: categories = [] } = useApi<Category[]>('/categories');
-  const { data: suppliers = [] } = useApi<Supplier[]>('/suppliers');
-  const { data: movements = [] } = useApi<Movement[]>('/inventory/movements');
+  // API calls with proper null handling
+  const { data: productsData, loading: loadingProducts, error: errorProducts } = useApi<Product[]>('/products');
+  const { data: categoriesData } = useApi<Category[]>('/categories');
+  const { data: suppliersData } = useApi<Supplier[]>('/suppliers');
+  const { data: movementsData } = useApi<Movement[]>('/inventory/movements');
+  
+  // Ensure data is always an array, never null
+  const products = Array.isArray(productsData) ? productsData : [];
+  const categories = Array.isArray(categoriesData) ? categoriesData : [];
+  const suppliers = Array.isArray(suppliersData) ? suppliersData : [];
+  const movements = Array.isArray(movementsData) ? movementsData : [];
   
   const { mutate: createProduct, loading: creatingProduct } = useApiMutation<Product>();
   const { mutate: updateProduct, loading: updatingProduct } = useApiMutation<Product>();

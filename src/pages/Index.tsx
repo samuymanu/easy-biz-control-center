@@ -1,6 +1,5 @@
 
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import Sidebar from "@/components/layout/Sidebar";
 import Dashboard from "@/components/modules/Dashboard";
@@ -25,30 +24,7 @@ const Index = () => {
   const [user, setUser] = useState<User | null>(null);
   const [activeModule, setActiveModule] = useState("dashboard");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
-
-  // Verificar si hay un token guardado al cargar la aplicación
-  useEffect(() => {
-    const token = localStorage.getItem('auth_token');
-    if (token) {
-      // Verificar que el token sea válido haciendo una llamada a la API
-      apiClient.get('/dashboard/stats')
-        .then(() => {
-          setIsAuthenticated(true);
-        })
-        .catch(() => {
-          // Token inválido, remover
-          localStorage.removeItem('auth_token');
-          apiClient.removeToken();
-        })
-        .finally(() => {
-          setLoading(false);
-        });
-    } else {
-      setLoading(false);
-    }
-  }, []);
+  const [loading, setLoading] = useState(false);
 
   const handleLogin = async (credentials: { username: string; password: string }) => {
     try {
@@ -126,7 +102,7 @@ const Index = () => {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <div className="text-slate-600">Iniciando sistema...</div>
+          <div className="text-slate-600">Iniciando sesión...</div>
         </div>
       </div>
     );

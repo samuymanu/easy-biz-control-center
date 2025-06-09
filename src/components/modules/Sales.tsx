@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -53,10 +52,15 @@ const Sales = () => {
   const [isSaleModalOpen, setIsSaleModalOpen] = useState(false);
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
 
-  // API calls
-  const { data: customers = [], loading: loadingCustomers } = useApi<Customer[]>('/customers');
-  const { data: products = [] } = useApi<Product[]>('/products');
-  const { data: sales = [], loading: loadingSales } = useApi<Sale[]>('/sales');
+  // API calls with proper null handling
+  const { data: customersData, loading: loadingCustomers } = useApi<Customer[]>('/customers');
+  const { data: productsData } = useApi<Product[]>('/products');
+  const { data: salesData, loading: loadingSales } = useApi<Sale[]>('/sales');
+  
+  // Ensure data is always an array, never null
+  const customers = Array.isArray(customersData) ? customersData : [];
+  const products = Array.isArray(productsData) ? productsData : [];
+  const sales = Array.isArray(salesData) ? salesData : [];
   
   const { mutate: createSale, loading: creatingSale } = useApiMutation<Sale>();
   const { mutate: createCustomer, loading: creatingCustomer } = useApiMutation<Customer>();
