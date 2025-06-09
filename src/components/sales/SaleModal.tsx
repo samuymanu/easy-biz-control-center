@@ -13,6 +13,7 @@ interface Customer {
   email: string;
   phone: string;
   address: string;
+  is_active?: boolean;
 }
 
 interface Product {

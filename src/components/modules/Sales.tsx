@@ -21,7 +21,7 @@ interface Customer {
   city?: string;
   tax_id?: string;
   credit_limit?: number;
-  is_active: boolean;
+  is_active?: boolean;
 }
 
 interface Product {
@@ -179,7 +179,7 @@ const Sales = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-purple-600">
-              {customers.filter(c => c.is_active).length}
+              {customers.filter(c => c.is_active !== false).length}
             </div>
             <p className="text-xs text-muted-foreground">
               clientes registrados
@@ -320,7 +320,7 @@ const Sales = () => {
 
         <TabsContent value="customers" className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {customers.filter(c => c.is_active).map((customer) => (
+            {customers.filter(c => c.is_active !== false).map((customer) => (
               <Card key={customer.id} className="hover:shadow-lg transition-shadow">
                 <CardHeader>
                   <CardTitle className="text-lg">{customer.name}</CardTitle>
@@ -362,7 +362,6 @@ const Sales = () => {
         isOpen={isCustomerModalOpen}
         onClose={() => setIsCustomerModalOpen(false)}
         onSave={handleNewCustomer}
-        loading={creatingCustomer}
       />
     </div>
   );
