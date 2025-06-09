@@ -66,9 +66,9 @@ const ProductModal = ({ isOpen, onClose, onSave, product, categories, suppliers,
     current_stock: 0,
     minimum_stock: 0,
     maximum_stock: 0,
-    unit_of_measure: "unidad",
+    unit_of_measure: "unidades",
     barcode: "",
-    image_url: ""
+    is_active: true
   });
 
   useEffect(() => {
@@ -84,33 +84,37 @@ const ProductModal = ({ isOpen, onClose, onSave, product, categories, suppliers,
         current_stock: product.current_stock,
         minimum_stock: product.minimum_stock,
         maximum_stock: product.maximum_stock || 0,
-        unit_of_measure: product.unit_of_measure || "unidad",
+        unit_of_measure: product.unit_of_measure || "unidades",
         barcode: product.barcode || "",
-        image_url: product.image_url || ""
+        is_active: product.is_active
       });
     } else {
-      setFormData({
-        sku: "",
-        name: "",
-        description: "",
-        category_id: "",
-        supplier_id: "",
-        cost_price: 0,
-        sale_price: 0,
-        current_stock: 0,
-        minimum_stock: 0,
-        maximum_stock: 0,
-        unit_of_measure: "unidad",
-        barcode: "",
-        image_url: ""
-      });
+      resetForm();
     }
-  }, [product, isOpen]);
+  }, [product]);
+
+  const resetForm = () => {
+    setFormData({
+      sku: "",
+      name: "",
+      description: "",
+      category_id: "",
+      supplier_id: "",
+      cost_price: 0,
+      sale_price: 0,
+      current_stock: 0,
+      minimum_stock: 0,
+      maximum_stock: 0,
+      unit_of_measure: "unidades",
+      barcode: "",
+      is_active: true
+    });
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    const submitData = {
+    const productData = {
       ...formData,
       category_id: parseInt(formData.category_id),
       supplier_id: formData.supplier_id ? parseInt(formData.supplier_id) : null,
@@ -118,27 +122,22 @@ const ProductModal = ({ isOpen, onClose, onSave, product, categories, suppliers,
       sale_price: parseFloat(formData.sale_price.toString()),
       current_stock: parseInt(formData.current_stock.toString()),
       minimum_stock: parseInt(formData.minimum_stock.toString()),
-      maximum_stock: formData.maximum_stock ? parseInt(formData.maximum_stock.toString()) : null,
-      is_active: true
+      maximum_stock: formData.maximum_stock ? parseInt(formData.maximum_stock.toString()) : null
     };
-    
-    onSave(submitData);
+
+    onSave(productData);
   };
 
-  const handleInputChange = (field: string, value: string | number) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+  const handleClose = () => {
+    resetForm();
+    onClose();
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>
-            {product ? "Editar Producto" : "Nuevo Producto"}
-          </DialogTitle>
+          <DialogTitle>{product ? "Editar Producto" : "Nuevo Producto"}</DialogTitle>
           <DialogDescription>
             {product ? "Modificar información del producto" : "Agregar un nuevo producto al inventario"}
           </DialogDescription>
@@ -151,15 +150,42 @@ const ProductModal = ({ isOpen, onClose, onSave, product, categories, suppliers,
               <Input
                 id="sku"
                 value={formData.sku}
-                onChange={(e) => handleInputChange("sku", e.target.value)}
-                placeholder="Código único del producto"
+                onChange={(e) => setFormData(prev => ({ ...prev, sku: e.target.value }))}
+                placeholder="SKU del producto"
                 required
               />
             </div>
-            
+
+            <div>
+              <Label htmlFor="name">Nombre *</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Nombre del producto"
+                required
+              />
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="description">Descripción</Label>
+            <Textarea
+              id="description"
+              value={formData.description}
+              onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+              placeholder="Descripción del producto"
+              rows={3}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="category">Categoría *</Label>
-              <Select value={formData.category_id} onValueChange={(value) => handleInputChange("category_id", value)}>
+              <Select 
+                value={formData.category_id} 
+                onValueChange={(value) => setFormData(prev => ({ ...prev, category_id: value }))}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Seleccionar categoría" />
                 </SelectTrigger>
@@ -172,81 +198,25 @@ const ProductModal = ({ isOpen, onClose, onSave, product, categories, suppliers,
                 </SelectContent>
               </Select>
             </div>
-          </div>
-
-          <div>
-            <Label htmlFor="name">Nombre del Producto *</Label>
-            <Input
-              id="name"
-              value={formData.name}
-              onChange={(e) => handleInputChange("name", e.target.value)}
-              placeholder="Nombre descriptivo del producto"
-              required
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="description">Descripción</Label>
-            <Textarea
-              id="description"
-              value={formData.description}
-              onChange={(e) => handleInputChange("description", e.target.value)}
-              placeholder="Descripción del producto"
-              rows={3}
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="supplier">Proveedor</Label>
-            <Select value={formData.supplier_id} onValueChange={(value) => handleInputChange("supplier_id", value)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Seleccionar proveedor" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">Sin proveedor</SelectItem>
-                {suppliers.map((supplier) => (
-                  <SelectItem key={supplier.id} value={supplier.id.toString()}>
-                    {supplier.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <Label htmlFor="current_stock">Stock Actual *</Label>
-              <Input
-                id="current_stock"
-                type="number"
-                value={formData.current_stock}
-                onChange={(e) => handleInputChange("current_stock", parseInt(e.target.value) || 0)}
-                min="0"
-                required
-              />
-            </div>
-            
-            <div>
-              <Label htmlFor="minimum_stock">Stock Mínimo *</Label>
-              <Input
-                id="minimum_stock"
-                type="number"
-                value={formData.minimum_stock}
-                onChange={(e) => handleInputChange("minimum_stock", parseInt(e.target.value) || 0)}
-                min="0"
-                required
-              />
-            </div>
 
             <div>
-              <Label htmlFor="maximum_stock">Stock Máximo</Label>
-              <Input
-                id="maximum_stock"
-                type="number"
-                value={formData.maximum_stock}
-                onChange={(e) => handleInputChange("maximum_stock", parseInt(e.target.value) || 0)}
-                min="0"
-              />
+              <Label htmlFor="supplier">Proveedor</Label>
+              <Select 
+                value={formData.supplier_id} 
+                onValueChange={(value) => setFormData(prev => ({ ...prev, supplier_id: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar proveedor" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Sin proveedor</SelectItem>
+                  {suppliers.map((supplier) => (
+                    <SelectItem key={supplier.id} value={supplier.id.toString()}>
+                      {supplier.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -257,23 +227,60 @@ const ProductModal = ({ isOpen, onClose, onSave, product, categories, suppliers,
                 id="cost_price"
                 type="number"
                 step="0.01"
-                value={formData.cost_price}
-                onChange={(e) => handleInputChange("cost_price", parseFloat(e.target.value) || 0)}
                 min="0"
+                value={formData.cost_price}
+                onChange={(e) => setFormData(prev => ({ ...prev, cost_price: parseFloat(e.target.value) || 0 }))}
                 required
               />
             </div>
-            
+
             <div>
               <Label htmlFor="sale_price">Precio de Venta *</Label>
               <Input
                 id="sale_price"
                 type="number"
                 step="0.01"
-                value={formData.sale_price}
-                onChange={(e) => handleInputChange("sale_price", parseFloat(e.target.value) || 0)}
                 min="0"
+                value={formData.sale_price}
+                onChange={(e) => setFormData(prev => ({ ...prev, sale_price: parseFloat(e.target.value) || 0 }))}
                 required
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <Label htmlFor="current_stock">Stock Actual *</Label>
+              <Input
+                id="current_stock"
+                type="number"
+                min="0"
+                value={formData.current_stock}
+                onChange={(e) => setFormData(prev => ({ ...prev, current_stock: parseInt(e.target.value) || 0 }))}
+                required
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="minimum_stock">Stock Mínimo *</Label>
+              <Input
+                id="minimum_stock"
+                type="number"
+                min="0"
+                value={formData.minimum_stock}
+                onChange={(e) => setFormData(prev => ({ ...prev, minimum_stock: parseInt(e.target.value) || 0 }))}
+                required
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="maximum_stock">Stock Máximo</Label>
+              <Input
+                id="maximum_stock"
+                type="number"
+                min="0"
+                value={formData.maximum_stock}
+                onChange={(e) => setFormData(prev => ({ ...prev, maximum_stock: parseInt(e.target.value) || 0 }))}
               />
             </div>
           </div>
@@ -284,38 +291,28 @@ const ProductModal = ({ isOpen, onClose, onSave, product, categories, suppliers,
               <Input
                 id="unit_of_measure"
                 value={formData.unit_of_measure}
-                onChange={(e) => handleInputChange("unit_of_measure", e.target.value)}
-                placeholder="ej: unidad, kg, litros"
+                onChange={(e) => setFormData(prev => ({ ...prev, unit_of_measure: e.target.value }))}
+                placeholder="ej: unidades, kg, litros"
               />
             </div>
-            
+
             <div>
               <Label htmlFor="barcode">Código de Barras</Label>
               <Input
                 id="barcode"
                 value={formData.barcode}
-                onChange={(e) => handleInputChange("barcode", e.target.value)}
-                placeholder="Código de barras del producto"
+                onChange={(e) => setFormData(prev => ({ ...prev, barcode: e.target.value }))}
+                placeholder="Código de barras"
               />
             </div>
           </div>
 
-          <div>
-            <Label htmlFor="image_url">URL de Imagen</Label>
-            <Input
-              id="image_url"
-              value={formData.image_url}
-              onChange={(e) => handleInputChange("image_url", e.target.value)}
-              placeholder="URL de la imagen del producto"
-            />
-          </div>
-
           <div className="flex justify-end gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
+            <Button type="button" variant="outline" onClick={handleClose} disabled={loading}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? "Guardando..." : (product ? "Actualizar" : "Guardar")}
+            <Button type="submit" disabled={loading || !formData.name || !formData.sku || !formData.category_id}>
+              {loading ? "Guardando..." : (product ? "Actualizar" : "Crear Producto")}
             </Button>
           </div>
         </form>

@@ -88,6 +88,7 @@ const Inventory = () => {
       setIsProductModalOpen(false);
       window.location.reload(); // Refresh to get updated data
     } catch (error) {
+      console.error('Error creating product:', error);
       toast.error('Error al crear producto');
     }
   };
@@ -101,6 +102,7 @@ const Inventory = () => {
         setIsProductModalOpen(false);
         window.location.reload(); // Refresh to get updated data
       } catch (error) {
+        console.error('Error updating product:', error);
         toast.error('Error al actualizar producto');
       }
     }
@@ -119,6 +121,7 @@ const Inventory = () => {
       setSelectedProduct(null);
       window.location.reload(); // Refresh to get updated data
     } catch (error) {
+      console.error('Error creating movement:', error);
       toast.error('Error al registrar movimiento');
     }
   };

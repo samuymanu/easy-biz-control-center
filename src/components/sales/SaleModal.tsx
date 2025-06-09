@@ -13,6 +13,9 @@ interface Customer {
   email: string;
   phone: string;
   address: string;
+  city?: string;
+  tax_id?: string;
+  credit_limit?: number;
   is_active?: boolean;
 }
 

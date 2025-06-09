@@ -82,22 +82,26 @@ const Sales = () => {
         }))
       };
 
+      console.log('Creating sale with payload:', salePayload);
       await createSale('/sales', salePayload);
       toast.success('Venta procesada correctamente');
       setIsSaleModalOpen(false);
       window.location.reload(); // Refresh to get updated data
     } catch (error) {
+      console.error('Error creating sale:', error);
       toast.error('Error al procesar venta');
     }
   };
 
   const handleNewCustomer = async (customerData: any) => {
     try {
+      console.log('Creating customer with data:', customerData);
       await createCustomer('/customers', customerData);
       toast.success('Cliente creado correctamente');
       setIsCustomerModalOpen(false);
       window.location.reload(); // Refresh to get updated data
     } catch (error) {
+      console.error('Error creating customer:', error);
       toast.error('Error al crear cliente');
     }
   };
