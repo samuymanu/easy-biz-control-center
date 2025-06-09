@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,9 +17,10 @@ interface CustomerModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (customer: Customer) => void;
+  loading?: boolean;
 }
 
-const CustomerModal = ({ isOpen, onClose, onSave }: CustomerModalProps) => {
+const CustomerModal = ({ isOpen, onClose, onSave, loading = false }: CustomerModalProps) => {
   const [formData, setFormData] = useState<Customer>({
     name: "",
     email: "",
@@ -27,17 +28,26 @@ const CustomerModal = ({ isOpen, onClose, onSave }: CustomerModalProps) => {
     address: ""
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Reset form cuando se abre el modal
+  useEffect(() => {
+    if (isOpen) {
+      resetForm();
+    }
+  }, [isOpen]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(formData);
     
-    // Reset form
-    setFormData({
-      name: "",
-      email: "",
-      phone: "",
-      address: ""
-    });
+    // No llamar onSave si ya está cargando
+    if (loading) return;
+    
+    try {
+      await onSave(formData);
+      // Solo resetear el formulario, no cerrar el modal automáticamente
+      resetForm();
+    } catch (error) {
+      console.error('Error al guardar cliente:', error);
+    }
   };
 
   const handleInputChange = (field: keyof Customer, value: string) => {
@@ -80,6 +90,7 @@ const CustomerModal = ({ isOpen, onClose, onSave }: CustomerModalProps) => {
               onChange={(e) => handleInputChange("name", e.target.value)}
               placeholder="Nombre del cliente"
               required
+              disabled={loading}
             />
           </div>
 
@@ -92,6 +103,7 @@ const CustomerModal = ({ isOpen, onClose, onSave }: CustomerModalProps) => {
               onChange={(e) => handleInputChange("email", e.target.value)}
               placeholder="cliente@email.com"
               required
+              disabled={loading}
             />
           </div>
 
@@ -103,6 +115,7 @@ const CustomerModal = ({ isOpen, onClose, onSave }: CustomerModalProps) => {
               onChange={(e) => handleInputChange("phone", e.target.value)}
               placeholder="555-0123"
               required
+              disabled={loading}
             />
           </div>
 
@@ -114,15 +127,16 @@ const CustomerModal = ({ isOpen, onClose, onSave }: CustomerModalProps) => {
               onChange={(e) => handleInputChange("address", e.target.value)}
               placeholder="Dirección completa del cliente"
               rows={3}
+              disabled={loading}
             />
           </div>
 
           <div className="flex justify-end gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={handleClose}>
+            <Button type="button" variant="outline" onClick={handleClose} disabled={loading}>
               Cancelar
             </Button>
-            <Button type="submit">
-              Guardar Cliente
+            <Button type="submit" disabled={loading || !formData.name || !formData.email || !formData.phone}>
+              {loading ? "Guardando..." : "Guardar Cliente"}
             </Button>
           </div>
         </form>

@@ -53,9 +53,9 @@ const Sales = () => {
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
 
   // API calls with proper null handling
-  const { data: customersData, loading: loadingCustomers } = useApi<Customer[]>('/customers');
+  const { data: customersData, loading: loadingCustomers, refetch: refetchCustomers } = useApi<Customer[]>('/customers');
   const { data: productsData } = useApi<Product[]>('/products');
-  const { data: salesData, loading: loadingSales } = useApi<Sale[]>('/sales');
+  const { data: salesData, loading: loadingSales, refetch: refetchSales } = useApi<Sale[]>('/sales');
   
   // Ensure data is always an array, never null
   const customers = Array.isArray(customersData) ? customersData : [];
@@ -90,7 +90,7 @@ const Sales = () => {
       await createSale('/sales', salePayload);
       toast.success('Venta procesada correctamente');
       setIsSaleModalOpen(false);
-      window.location.reload(); // Refresh to get updated data
+      refetchSales(); // Refrescar datos en lugar de recargar toda la página
     } catch (error) {
       console.error('Error creating sale:', error);
       toast.error('Error al procesar venta');
@@ -102,8 +102,8 @@ const Sales = () => {
       console.log('Creating customer with data:', customerData);
       await createCustomer('/customers', customerData);
       toast.success('Cliente creado correctamente');
-      setIsCustomerModalOpen(false);
-      window.location.reload(); // Refresh to get updated data
+      refetchCustomers(); // Refrescar la lista de clientes
+      // No cerrar el modal automáticamente, dejar que el usuario decida
     } catch (error) {
       console.error('Error creating customer:', error);
       toast.error('Error al crear cliente');
@@ -370,6 +370,7 @@ const Sales = () => {
         isOpen={isCustomerModalOpen}
         onClose={() => setIsCustomerModalOpen(false)}
         onSave={handleNewCustomer}
+        loading={creatingCustomer}
       />
     </div>
   );

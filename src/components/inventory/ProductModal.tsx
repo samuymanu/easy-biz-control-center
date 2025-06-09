@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -60,7 +59,7 @@ const ProductModal = ({ isOpen, onClose, onSave, product, categories, suppliers,
     name: "",
     description: "",
     category_id: "",
-    supplier_id: "",
+    supplier_id: "0", // Usar "0" en lugar de "" para indicar sin proveedor
     cost_price: 0,
     sale_price: 0,
     current_stock: 0,
@@ -78,7 +77,7 @@ const ProductModal = ({ isOpen, onClose, onSave, product, categories, suppliers,
         name: product.name,
         description: product.description || "",
         category_id: product.category_id.toString(),
-        supplier_id: product.supplier_id?.toString() || "",
+        supplier_id: product.supplier_id?.toString() || "0",
         cost_price: product.cost_price,
         sale_price: product.sale_price,
         current_stock: product.current_stock,
@@ -91,7 +90,7 @@ const ProductModal = ({ isOpen, onClose, onSave, product, categories, suppliers,
     } else {
       resetForm();
     }
-  }, [product]);
+  }, [product, isOpen]);
 
   const resetForm = () => {
     setFormData({
@@ -99,7 +98,7 @@ const ProductModal = ({ isOpen, onClose, onSave, product, categories, suppliers,
       name: "",
       description: "",
       category_id: "",
-      supplier_id: "",
+      supplier_id: "0",
       cost_price: 0,
       sale_price: 0,
       current_stock: 0,
@@ -117,7 +116,7 @@ const ProductModal = ({ isOpen, onClose, onSave, product, categories, suppliers,
     const productData = {
       ...formData,
       category_id: parseInt(formData.category_id),
-      supplier_id: formData.supplier_id ? parseInt(formData.supplier_id) : null,
+      supplier_id: formData.supplier_id === "0" ? null : parseInt(formData.supplier_id),
       cost_price: parseFloat(formData.cost_price.toString()),
       sale_price: parseFloat(formData.sale_price.toString()),
       current_stock: parseInt(formData.current_stock.toString()),
@@ -209,7 +208,7 @@ const ProductModal = ({ isOpen, onClose, onSave, product, categories, suppliers,
                   <SelectValue placeholder="Seleccionar proveedor" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Sin proveedor</SelectItem>
+                  <SelectItem value="0">Sin proveedor</SelectItem>
                   {suppliers.map((supplier) => (
                     <SelectItem key={supplier.id} value={supplier.id.toString()}>
                       {supplier.name}
