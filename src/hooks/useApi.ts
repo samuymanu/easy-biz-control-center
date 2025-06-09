@@ -1,5 +1,4 @@
-
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 const API_BASE_URL = 'http://localhost:3001/api';
 
@@ -7,6 +6,7 @@ interface ApiState<T> {
   data: T | null;
   loading: boolean;
   error: string | null;
+  refetch: () => void;
 }
 
 class ApiClient {
@@ -77,24 +77,35 @@ class ApiClient {
 
 export const apiClient = new ApiClient();
 
-export function useApi<T>(endpoint: string, dependencies: any[] = []) {
-  const [state, setState] = useState<ApiState<T>>({
+export function useApi<T>(endpoint: string, dependencies: any[] = []): ApiState<T> {
+  const [state, setState] = useState<Omit<ApiState<T>, 'refetch'>>({
     data: null,
     loading: true,
     error: null,
   });
   
-  useEffect(() => {
+  const fetchData = useCallback(async () => {
     if (!endpoint) return;
     
     setState(prev => ({ ...prev, loading: true, error: null }));
     
-    apiClient.get<T>(endpoint)
-      .then(data => setState({ data, loading: false, error: null }))
-      .catch(error => setState({ data: null, loading: false, error: error.message }));
-  }, [endpoint, ...dependencies]);
+    try {
+      const data = await apiClient.get<T>(endpoint);
+      setState({ data, loading: false, error: null });
+    } catch (error: any) {
+      setState({ data: null, loading: false, error: error.message });
+    }
+  }, [endpoint]);
   
-  return state;
+  const refetch = useCallback(() => {
+    fetchData();
+  }, [fetchData]);
+  
+  useEffect(() => {
+    fetchData();
+  }, [fetchData, ...dependencies]);
+  
+  return { ...state, refetch };
 }
 
 export function useApiMutation<T, U = any>() {
