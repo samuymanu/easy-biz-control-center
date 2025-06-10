@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { 
@@ -17,9 +16,12 @@ interface SidebarProps {
   onModuleChange: (module: string) => void;
   collapsed: boolean;
   onToggleCollapse: () => void;
+  user?: {
+    role: string;
+  };
 }
 
-const Sidebar = ({ activeModule, onModuleChange, collapsed, onToggleCollapse }: SidebarProps) => {
+const Sidebar = ({ activeModule, onModuleChange, collapsed, onToggleCollapse, user }: SidebarProps) => {
   const menuItems = [
     { id: "dashboard", label: "Panel Principal", icon: Home },
     { id: "inventory", label: "Inventario", icon: Package },

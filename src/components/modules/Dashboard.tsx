@@ -1,9 +1,11 @@
-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from "recharts";
 import { Package, ShoppingCart, TrendingUp, AlertTriangle } from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
 
 const Dashboard = () => {
+  const { user } = useAuth();
+
   // Datos simulados para gráficos
   const salesData = [
     { name: "Ene", ventas: 65000 },
@@ -159,6 +161,12 @@ const Dashboard = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Información del Usuario */}
+      <div className="p-4 bg-white rounded-lg shadow">
+        <strong>Usuario:</strong> {user?.name} <br />
+        <strong>Rol:</strong> {user?.role}
+      </div>
     </div>
   );
 };

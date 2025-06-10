@@ -10,6 +10,9 @@ import { useApi, useApiMutation } from "@/hooks/useApi";
 import { toast } from "sonner";
 import SaleModal from "@/components/sales/SaleModal";
 import CustomerModal from "@/components/sales/CustomerModal";
+import FacturaModal from "@/components/sales/FacturaModal";
+import HistorialClienteModal from "@/components/sales/HistorialClienteModal";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 
 interface Customer {
   id: string;
@@ -47,10 +50,25 @@ interface Sale {
   notes?: string;
 }
 
+interface SaleModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (saleData: any) => void;
+  customers: Customer[];
+  products: Product[];
+  loading: boolean;
+  exchangeRate: number; // ← Agrega esto
+}
+
 const Sales = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [isSaleModalOpen, setIsSaleModalOpen] = useState(false);
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
+  const [exchangeRate, setExchangeRate] = useState<number>(0);
+  const [ventaSeleccionada, setVentaSeleccionada] = useState<Sale | null>(null);
+  const [showFactura, setShowFactura] = useState(false);
+  const [showHistorial, setShowHistorial] = useState(false);
+  const [clienteSeleccionado, setClienteSeleccionado] = useState<Customer | null>(null);
 
   // API calls with proper null handling
   const { data: customersData, loading: loadingCustomers, refetch: refetchCustomers } = useApi<Customer[]>('/customers');
@@ -70,10 +88,11 @@ const Sales = () => {
     sale.sale_number.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Permitir venta sin cliente, usando null para customer_id si es "Consumidor Final"
   const handleNewSale = async (saleData: any) => {
     try {
       const salePayload = {
-        customer_id: saleData.customer.id,
+        customer_id: saleData.customer?.id || null,
         subtotal: saleData.subtotal,
         tax_amount: saleData.tax,
         total_amount: saleData.total,
@@ -136,7 +155,16 @@ const Sales = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-slate-800">Gestión de Ventas</h1>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+          {/* Input para tasa de cambio */}
+          <Input
+            type="number"
+            value={exchangeRate}
+            onChange={(e) => setExchangeRate(Number(e.target.value))}
+            placeholder="Tasa Bs"
+            className="w-32"
+            min={0}
+          />
           <Button onClick={() => setIsCustomerModalOpen(true)} variant="outline">
             <Plus className="h-4 w-4 mr-2" />
             Nuevo Cliente
@@ -267,7 +295,7 @@ const Sales = () => {
                       <div>
                         <CardTitle className="text-lg">Venta #{sale.sale_number}</CardTitle>
                         <CardDescription>
-                          {new Date(sale.sale_date).toLocaleDateString()} - {sale.customer_name || 'Cliente no especificado'}
+                          {new Date(sale.sale_date).toLocaleDateString()} - {sale.customer_name || 'Consumidor Final'}
                         </CardDescription>
                       </div>
                       <div className="text-right">
@@ -275,7 +303,12 @@ const Sales = () => {
                           {sale.sale_status === "completed" ? "Completada" : sale.sale_status}
                         </Badge>
                         <div className="text-2xl font-bold text-green-600 mt-1">
-                          ${sale.total_amount.toLocaleString()}
+                          ${sale.total_amount.toLocaleString()} 
+                          {exchangeRate > 0 && (
+                            <span className="text-xs text-slate-500 ml-2">
+                              | Bs {(sale.total_amount * exchangeRate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -285,11 +318,25 @@ const Sales = () => {
                       <div className="grid grid-cols-2 gap-4 text-sm">
                         <div>
                           <span className="text-slate-600">Subtotal:</span>
-                          <span className="font-medium ml-2">${sale.subtotal.toLocaleString()}</span>
+                          <span className="font-medium ml-2">
+                            ${sale.subtotal.toLocaleString()}
+                            {exchangeRate > 0 && (
+                              <span className="text-xs text-slate-500 ml-2">
+                                | Bs {(sale.subtotal * exchangeRate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </span>
+                            )}
+                          </span>
                         </div>
                         <div>
                           <span className="text-slate-600">Impuestos:</span>
-                          <span className="font-medium ml-2">${sale.tax_amount.toLocaleString()}</span>
+                          <span className="font-medium ml-2">
+                            ${sale.tax_amount.toLocaleString()}
+                            {exchangeRate > 0 && (
+                              <span className="text-xs text-slate-500 ml-2">
+                                | Bs {(sale.tax_amount * exchangeRate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </span>
+                            )}
+                          </span>
                         </div>
                         <div>
                           <span className="text-slate-600">Método de pago:</span>
@@ -310,13 +357,11 @@ const Sales = () => {
                       )}
 
                       <div className="flex gap-2 pt-2">
-                        <Button variant="outline" size="sm">
+                        <Button variant="outline" size="sm" onClick={() => { setVentaSeleccionada(sale); setShowFactura(true); }}>
                           <FileText className="h-3 w-3 mr-1" />
                           Ver Factura
                         </Button>
-                        <Button variant="outline" size="sm">
-                          Imprimir
-                        </Button>
+                        
                       </div>
                     </div>
                   </CardContent>
@@ -344,7 +389,7 @@ const Sales = () => {
                       <div><strong>Límite crédito:</strong> ${customer.credit_limit.toLocaleString()}</div>
                     )}
                     <div className="pt-2">
-                      <Button variant="outline" size="sm" className="w-full">
+                      <Button variant="outline" size="sm" className="w-full" onClick={() => { setVentaSeleccionada(customer as any); setShowFactura(true); }}>
                         Ver Historial
                       </Button>
                     </div>
@@ -364,6 +409,7 @@ const Sales = () => {
         customers={customers}
         products={products}
         loading={creatingSale}
+        exchangeRate={exchangeRate} // <-- pasa la tasa al modal de venta
       />
 
       <CustomerModal
@@ -371,6 +417,36 @@ const Sales = () => {
         onClose={() => setIsCustomerModalOpen(false)}
         onSave={handleNewCustomer}
         loading={creatingCustomer}
+      />
+
+      <FacturaModal
+        isOpen={showFactura}
+        onClose={() => setShowFactura(false)}
+        sale={
+          ventaSeleccionada
+            ? { ...ventaSeleccionada, items: (ventaSeleccionada as any).items ?? [] }
+            : undefined
+        }
+      />
+
+      <HistorialClienteModal
+        isOpen={showHistorial}
+        onClose={() => setShowHistorial(false)}
+        cliente={clienteSeleccionado || { name: "", email: "" }}
+        ventas={sales
+          .filter(sale => String(sale.customer_id) === clienteSeleccionado?.id)
+          .map(sale => ({
+            sale_number: sale.sale_number,
+            sale_date: sale.sale_date,
+            total_amount: sale.total_amount,
+            items: (sale as any).items
+              ? (sale as any).items.map((item: any) => ({
+                  productName: item.productName || item.product_name || "",
+                  quantity: item.quantity,
+                  price: item.price || item.unit_price || 0
+                }))
+              : []
+          }))}
       />
     </div>
   );

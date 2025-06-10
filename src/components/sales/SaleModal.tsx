@@ -1,385 +1,286 @@
-
-import { useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, AlertCircle } from "lucide-react";
 
 interface Customer {
   id: string;
   name: string;
   email: string;
-  phone: string;
-  address: string;
-  city?: string;
-  tax_id?: string;
-  credit_limit?: number;
-  is_active?: boolean;
 }
-
 interface Product {
   id: string;
-  sku: string;
   name: string;
   sale_price: number;
   current_stock: number;
-  category_name?: string;
 }
-
-interface SaleItem {
-  productId: string;
-  productName: string;
-  quantity: number;
-  price: number;
-  total: number;
-  availableStock: number;
-}
-
-interface Sale {
-  customer: Customer;
-  items: SaleItem[];
-  subtotal: number;
-  tax: number;
-  total: number;
-  paymentMethod: string;
-  status: string;
-}
-
 interface SaleModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (sale: Omit<Sale, "id" | "date">) => void;
+  onSave: (saleData: any) => void;
   customers: Customer[];
   products: Product[];
-  loading?: boolean;
+  loading: boolean;
+  exchangeRate: number;
 }
 
-const SaleModal = ({ isOpen, onClose, onSave, customers, products, loading = false }: SaleModalProps) => {
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
-  const [items, setItems] = useState<SaleItem[]>([]);
-  const [paymentMethod, setPaymentMethod] = useState("");
-  const [newItem, setNewItem] = useState({
-    productId: "",
-    quantity: 1,
-    price: 0
-  });
+const paymentMethods = [
+  { value: "Pago Móvil", label: "Pago Móvil" },
+  { value: "Punto de Venta", label: "Punto de Venta" },
+  { value: "Efectivo Bs", label: "Efectivo Bs" },
+  { value: "Efectivo USD", label: "Efectivo $" },
+  { value: "Zelle", label: "Zelle" },
+  { value: "USDT", label: "USDT" },
+];
 
-  const addItem = () => {
-    const selectedProduct = products.find(p => p.id === newItem.productId);
-    if (selectedProduct && newItem.quantity > 0 && newItem.price > 0) {
-      // Verificar stock disponible
-      if (newItem.quantity > selectedProduct.current_stock) {
-        alert(`Stock insuficiente. Disponible: ${selectedProduct.current_stock}`);
-        return;
-      }
+const SaleModal: React.FC<SaleModalProps> = ({
+  isOpen,
+  onClose,
+  onSave,
+  customers,
+  products,
+  loading,
+  exchangeRate: initialExchangeRate,
+}) => {
+  // LOCAL STATE
+  const [selectedCustomer, setSelectedCustomer] = useState<string>("");
+  const [selectedProductId, setSelectedProductId] = useState<string>("");
+  const [quantity, setQuantity] = useState<number>(1);
+  const [price, setPrice] = useState<number>(0);
+  const [items, setItems] = useState<any[]>([]);
+  const [paymentMethod, setPaymentMethod] = useState<string>(paymentMethods[0].value);
+  const [exchangeRate, setExchangeRate] = useState<number>(initialExchangeRate || 0);
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const [ventaSeleccionada, setVentaSeleccionada] = useState<any>(null);
+  const [showFactura, setShowFactura] = useState<boolean>(false);
 
-      // Verificar si el producto ya está en la lista
-      const existingItemIndex = items.findIndex(item => item.productId === newItem.productId);
-      
-      if (existingItemIndex >= 0) {
-        // Actualizar cantidad del producto existente
-        const updatedItems = [...items];
-        const newQuantity = updatedItems[existingItemIndex].quantity + newItem.quantity;
-        
-        if (newQuantity > selectedProduct.current_stock) {
-          alert(`Stock insuficiente. Disponible: ${selectedProduct.current_stock}`);
-          return;
-        }
-        
-        updatedItems[existingItemIndex] = {
-          ...updatedItems[existingItemIndex],
-          quantity: newQuantity,
-          total: newQuantity * updatedItems[existingItemIndex].price
-        };
-        setItems(updatedItems);
-      } else {
-        // Agregar nuevo producto
-        const item: SaleItem = {
-          productId: newItem.productId,
-          productName: selectedProduct.name,
-          quantity: newItem.quantity,
-          price: newItem.price,
-          total: newItem.quantity * newItem.price,
-          availableStock: selectedProduct.current_stock
-        };
-        setItems([...items, item]);
-      }
-      
-      setNewItem({ productId: "", quantity: 1, price: 0 });
-    }
+  // Find selected product with strict string comparison
+  const productObj = products.find(p => String(p.id) === String(selectedProductId));
+
+  // Cuando seleccionas producto, pon el precio por defecto del producto
+  const handleSelectProduct = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const prodId = e.target.value;
+    setSelectedProductId(prodId);
+    const prod = products.find(p => String(p.id) === String(prodId));
+    setPrice(prod ? prod.sale_price : 0);
   };
 
-  const removeItem = (index: number) => {
-    setItems(items.filter((_, i) => i !== index));
-  };
+  // Add product to sale
+  const handleAddItem = () => {
+    setFeedback(null);
 
-  const updateItemQuantity = (index: number, newQuantity: number) => {
-    const updatedItems = [...items];
-    const item = updatedItems[index];
-    
-    if (newQuantity > item.availableStock) {
-      alert(`Stock insuficiente. Disponible: ${item.availableStock}`);
+    // Validación robusta
+    if (!selectedProductId) {
+      setFeedback("Selecciona un producto");
       return;
     }
-    
-    if (newQuantity <= 0) {
-      removeItem(index);
+    if (!productObj) {
+      setFeedback("Producto no válido");
       return;
     }
-    
-    updatedItems[index] = {
-      ...item,
-      quantity: newQuantity,
-      total: newQuantity * item.price
-    };
-    setItems(updatedItems);
-  };
-
-  const calculateTotals = () => {
-    const subtotal = items.reduce((sum, item) => sum + item.total, 0);
-    const tax = subtotal * 0.15; // 15% de impuesto
-    const total = subtotal + tax;
-    return { subtotal, tax, total };
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (selectedCustomer && items.length > 0 && paymentMethod) {
-      const { subtotal, tax, total } = calculateTotals();
-      
-      onSave({
-        customer: selectedCustomer,
-        items: items,
-        subtotal,
-        tax,
-        total,
-        paymentMethod,
-        status: "Completada"
-      });
-
-      // Reset form
-      resetForm();
+    if (!quantity || quantity < 1) {
+      setFeedback("Cantidad debe ser al menos 1");
+      return;
     }
-  };
-
-  const resetForm = () => {
-    setSelectedCustomer(null);
-    setItems([]);
-    setPaymentMethod("");
-    setNewItem({ productId: "", quantity: 1, price: 0 });
-  };
-
-  const handleClose = () => {
-    resetForm();
-    onClose();
-  };
-
-  const handleProductSelect = (productId: string) => {
-    const product = products.find(p => p.id === productId);
-    if (product) {
-      setNewItem(prev => ({
-        ...prev,
-        productId,
-        price: product.sale_price
-      }));
+    if (quantity > productObj.current_stock) {
+      setFeedback(`No hay suficiente stock. Disponible: ${productObj.current_stock}`);
+      return;
     }
+    if (!price || price <= 0) {
+      setFeedback("El precio debe ser mayor a 0");
+      return;
+    }
+    if (items.some(item => String(item.productId) === String(productObj.id))) {
+      setFeedback("Este producto ya fue agregado");
+      return;
+    }
+    setItems([...items, {
+      productId: productObj.id,
+      productName: productObj.name,
+      quantity,
+      price,
+      total: price * quantity,
+      stock: productObj.current_stock,
+    }]);
+    setSelectedProductId("");
+    setQuantity(1);
+    setPrice(0);
   };
 
-  const { subtotal, tax, total } = calculateTotals();
+  // Remove item
+  const handleRemoveItem = (idx: number) => setItems(items.filter((_, i) => i !== idx));
 
-  // Filtrar productos con stock
-  const availableProducts = products.filter(p => p.current_stock > 0);
+  // Totals
+  const subtotal = items.reduce((sum, item) => sum + item.total, 0);
+  const tax = +(subtotal * 0.15).toFixed(2);
+  const total = +(subtotal + tax).toFixed(2);
+
+  // Process sale
+  const handleProcessSale = () => {
+    setFeedback(null);
+    if (items.length === 0) {
+      setFeedback("Agrega al menos un producto");
+      return;
+    }
+    onSave({
+      customer: selectedCustomer ? customers.find(c => c.id === selectedCustomer) : null,
+      items,
+      subtotal,
+      tax,
+      total,
+      paymentMethod,
+      exchangeRate,
+    });
+  };
+
+  if (!isOpen) return null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Nueva Venta</DialogTitle>
-          <DialogDescription>Procesar una nueva venta</DialogDescription>
-        </DialogHeader>
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl p-6 relative">
+        <button onClick={onClose} className="absolute right-4 top-4 text-slate-500 hover:text-red-500 text-xl">&times;</button>
+        <h2 className="text-2xl font-semibold mb-1">Nueva Venta</h2>
+        <p className="mb-4 text-slate-500">Procesar una nueva venta</p>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Selección de cliente */}
-          <div>
-            <Label htmlFor="customer">Cliente *</Label>
-            <Select 
-              value={selectedCustomer?.id || ""} 
-              onValueChange={(value) => {
-                const customer = customers.find(c => c.id === value);
-                setSelectedCustomer(customer || null);
-              }}
+        {/* Tasa de cambio */}
+        <div className="mb-4 flex items-center gap-3">
+          <Label>Tasa de cambio Bs/$:</Label>
+          <Input
+            type="number"
+            min={0}
+            value={exchangeRate}
+            onChange={e => setExchangeRate(Number(e.target.value))}
+            className="w-28"
+            placeholder="Tasa Bs"
+          />
+        </div>
+
+        {/* Cliente */}
+        <Label>Cliente</Label>
+        <select
+          className="w-full border rounded px-2 py-2 mb-4"
+          value={selectedCustomer}
+          onChange={e => setSelectedCustomer(e.target.value)}
+        >
+          <option value="">Consumidor Final</option>
+          {customers.map(c => (
+            <option key={c.id} value={c.id}>
+              {c.name} {c.email && `- ${c.email}`}
+            </option>
+          ))}
+        </select>
+
+        {/* Agregar productos */}
+        <div className="mb-4 border p-3 rounded">
+          <Label>Agregar Productos</Label>
+          <div className="flex gap-2 mb-2 items-end">
+            <select
+              className="border rounded px-2 py-1"
+              value={selectedProductId}
+              onChange={handleSelectProduct}
             >
-              <SelectTrigger>
-                <SelectValue placeholder="Seleccionar cliente" />
-              </SelectTrigger>
-              <SelectContent>
-                {customers.filter(c => c.is_active !== false).map((customer) => (
-                  <SelectItem key={customer.id} value={customer.id}>
-                    {customer.name} - {customer.email}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <option value="">Seleccionar producto</option>
+              {products.map(p => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+            <Input
+              type="number"
+              min={1}
+              max={productObj?.current_stock || 1}
+              value={quantity}
+              onChange={e => setQuantity(Number(e.target.value))}
+              placeholder="Cantidad"
+              className="w-20"
+              disabled={!selectedProductId}
+            />
+            <Input
+              type="number"
+              min={0}
+              value={price}
+              onChange={e => setPrice(Number(e.target.value))}
+              placeholder="Precio"
+              className="w-28"
+              disabled={!selectedProductId}
+            />
+            <Button onClick={handleAddItem} disabled={!selectedProductId || !quantity || !price}>+ Agregar</Button>
           </div>
-
-          {/* Agregar productos */}
-          <div className="border rounded-lg p-4">
-            <h3 className="font-medium mb-4">Agregar Productos</h3>
-            
-            {availableProducts.length === 0 ? (
-              <div className="text-center py-4">
-                <AlertCircle className="h-8 w-8 text-yellow-500 mx-auto mb-2" />
-                <p className="text-slate-600">No hay productos disponibles con stock</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-                <div>
-                  <Label htmlFor="product">Producto *</Label>
-                  <Select 
-                    value={newItem.productId}
-                    onValueChange={handleProductSelect}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar producto" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableProducts.map((product) => (
-                        <SelectItem key={product.id} value={product.id}>
-                          {product.name} - ${product.sale_price} (Stock: {product.current_stock})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div>
-                  <Label htmlFor="quantity">Cantidad *</Label>
-                  <Input
-                    id="quantity"
-                    type="number"
-                    min="1"
-                    value={newItem.quantity}
-                    onChange={(e) => setNewItem(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="price">Precio *</Label>
-                  <Input
-                    id="price"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={newItem.price}
-                    onChange={(e) => setNewItem(prev => ({ ...prev, price: parseFloat(e.target.value) || 0 }))}
-                  />
-                </div>
-                
-                <div className="flex items-end">
-                  <Button 
-                    type="button" 
-                    onClick={addItem} 
-                    className="w-full"
-                    disabled={!newItem.productId || newItem.quantity <= 0 || newItem.price <= 0}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Agregar
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Lista de productos agregados */}
-          {items.length > 0 && (
-            <div className="border rounded-lg p-4">
-              <h3 className="font-medium mb-4">Productos en la Venta</h3>
-              
-              <div className="space-y-3 mb-4">
-                {items.map((item, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                    <div className="flex-1">
-                      <div className="font-medium">{item.productName}</div>
-                      <div className="text-sm text-slate-600">
-                        Precio unitario: ${item.price} | Stock disponible: {item.availableStock}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="number"
-                        min="1"
-                        max={item.availableStock}
-                        value={item.quantity}
-                        onChange={(e) => updateItemQuantity(index, parseInt(e.target.value) || 1)}
-                        className="w-20"
-                      />
-                      <span className="text-sm text-slate-600 min-w-[80px]">= ${item.total.toFixed(2)}</span>
-                      <Button 
-                        type="button" 
-                        variant="destructive" 
-                        size="sm"
-                        onClick={() => removeItem(index)}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Totales */}
-              <div className="border-t pt-4">
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span>Subtotal:</span>
-                    <span>${subtotal.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Impuestos (15%):</span>
-                    <span>${tax.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between font-bold text-lg border-t pt-2">
-                    <span>Total:</span>
-                    <span>${total.toFixed(2)}</span>
-                  </div>
-                </div>
-              </div>
+          {productObj && (
+            <div className="text-xs text-slate-600 mb-1">
+              <b>Stock disponible:</b> {productObj.current_stock}
             </div>
           )}
+          {feedback && <div className="text-red-500 text-xs">{feedback}</div>}
+        </div>
 
-          {/* Método de pago */}
-          <div>
-            <Label htmlFor="payment">Método de Pago *</Label>
-            <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-              <SelectTrigger>
-                <SelectValue placeholder="Seleccionar método de pago" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="efectivo">Efectivo</SelectItem>
-                <SelectItem value="tarjeta">Tarjeta de Crédito/Débito</SelectItem>
-                <SelectItem value="transferencia">Transferencia Bancaria</SelectItem>
-                <SelectItem value="cheque">Cheque</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+        {/* Productos en la venta */}
+        <div className="mb-4 border rounded p-3">
+          <Label>Productos en la Venta</Label>
+          {items.length === 0 ? (
+            <div className="text-slate-400">No hay productos agregados.</div>
+          ) : (
+            items.map((item, idx) => (
+              <div key={idx} className="flex items-center justify-between border-b py-1">
+                <div>
+                  <span className="font-semibold">{item.productName}</span>
+                  <span className="ml-2 text-slate-500 text-xs">Stock: {item.stock}</span>
+                  <div className="text-xs text-slate-600">
+                    Precio unitario: ${item.price} | Bs {(item.price * exchangeRate).toFixed(2)}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span>{item.quantity} x ${item.price} = <b>${item.total.toFixed(2)}</b></span>
+                  <span className="text-xs text-slate-500 ml-2">Bs {(item.total * exchangeRate).toFixed(2)}</span>
+                  <Button size="sm" variant="destructive" onClick={() => handleRemoveItem(idx)}>Eliminar</Button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
 
-          <div className="flex justify-end gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={handleClose} disabled={loading}>
-              Cancelar
-            </Button>
-            <Button 
-              type="submit" 
-              disabled={!selectedCustomer || items.length === 0 || !paymentMethod || loading}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              {loading ? "Procesando..." : "Procesar Venta"}
-            </Button>
-          </div>
-        </form>
-      </DialogContent>
-    </Dialog>
+        {/* Totales */}
+        <div className="mb-4">
+          <div>Subtotal: <b>${subtotal.toFixed(2)}</b> | <b>Bs {(subtotal * exchangeRate).toFixed(2)}</b></div>
+          <div>Impuestos (15%): <b>${tax.toFixed(2)}</b> | <b>Bs {(tax * exchangeRate).toFixed(2)}</b></div>
+          <div className="font-bold text-lg mt-2">Total: ${total.toFixed(2)} | Bs {(total * exchangeRate).toFixed(2)}</div>
+        </div>
+
+        {/* Método de pago */}
+        <div className="mb-4">
+          <Label>Método de Pago</Label>
+          <select
+            className="w-full border rounded px-2 py-2"
+            value={paymentMethod}
+            onChange={e => setPaymentMethod(e.target.value)}
+          >
+            {paymentMethods.map(pm => (
+              <option key={pm.value} value={pm.value}>{pm.label}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button
+            className="bg-green-600 hover:bg-green-700"
+            onClick={handleProcessSale}
+            disabled={items.length === 0 || loading}
+          >
+            {loading ? "Procesando..." : "Procesar Venta"}
+          </Button>
+        </div>
+
+        {/* Botones adicionales para ver e imprimir factura */}
+        <div className="mt-4 flex justify-end gap-2">
+          <Button onClick={() => {
+            setVentaSeleccionada(null);
+            setShowFactura(true);
+          }}>
+            Ver Factura
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 };
 

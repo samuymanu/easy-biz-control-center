@@ -5,6 +5,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
+import PrivateRoute from "./components/PrivateRoute";
+import Login from "./pages/Login";
 
 const queryClient = new QueryClient();
 
@@ -15,8 +17,18 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Index />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          {/* Ruta pública */}
+          <Route path="/login" element={<Login />} />
+          {/* Ruta protegida */}
+          <Route
+            path="/"
+            element={
+              <PrivateRoute>
+                <Index />
+              </PrivateRoute>
+            }
+          />
+          {/* Resto */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

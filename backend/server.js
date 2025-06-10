@@ -257,7 +257,8 @@ app.get('/api/products', authenticateToken, (req, res) => {
     });
 });
 
-app.post('/api/products', authenticateToken, (req, res) => {
+app.post('/api/products', authenticateToken, async (req, res) => {
+  try {
     const {
         sku, name, description, category_id, supplier_id,
         cost_price, sale_price, current_stock, minimum_stock
@@ -278,8 +279,11 @@ app.post('/api/products', authenticateToken, (req, res) => {
             res.status(500).json({ error: 'Error al crear producto' });
             return;
         }
-        res.json({ id: this.lastID, message: 'Producto creado correctamente' });
+        res.status(201).json({ message: 'Producto creado correctamente' });
     });
+  } catch (error) {
+    res.status(500).json({ error: 'Error al crear producto' });
+  }
 });
 
 app.put('/api/products/:id', authenticateToken, (req, res) => {

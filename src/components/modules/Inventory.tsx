@@ -66,10 +66,10 @@ const Inventory = () => {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   // API calls with proper null handling
-  const { data: productsData, loading: loadingProducts, error: errorProducts } = useApi<Product[]>('/products');
-  const { data: categoriesData } = useApi<Category[]>('/categories');
-  const { data: suppliersData } = useApi<Supplier[]>('/suppliers');
-  const { data: movementsData } = useApi<Movement[]>('/inventory/movements');
+  const { data: productsData, loading: loadingProducts, error: errorProducts, refetch: refetchProducts } = useApi<Product[]>('/products');
+  const { data: categoriesData, refetch: refetchCategories } = useApi<Category[]>('/categories');
+  const { data: suppliersData, refetch: refetchSuppliers } = useApi<Supplier[]>('/suppliers');
+  const { data: movementsData, refetch: refetchMovements } = useApi<Movement[]>('/inventory/movements');
   
   // Ensure data is always an array, never null
   const products = Array.isArray(productsData) ? productsData : [];
@@ -91,7 +91,9 @@ const Inventory = () => {
       await createProduct('/products', productData);
       toast.success('Producto creado correctamente');
       setIsProductModalOpen(false);
-      window.location.reload(); // Refresh to get updated data
+      // Actualiza el estado de productos y movimientos sin recargar la página
+      refetchProducts();
+      refetchMovements();
     } catch (error) {
       console.error('Error creating product:', error);
       toast.error('Error al crear producto');
@@ -105,7 +107,8 @@ const Inventory = () => {
         toast.success('Producto actualizado correctamente');
         setSelectedProduct(null);
         setIsProductModalOpen(false);
-        window.location.reload(); // Refresh to get updated data
+        refetchProducts();
+        refetchMovements();
       } catch (error) {
         console.error('Error updating product:', error);
         toast.error('Error al actualizar producto');
@@ -124,7 +127,8 @@ const Inventory = () => {
       toast.success('Movimiento registrado correctamente');
       setIsStockModalOpen(false);
       setSelectedProduct(null);
-      window.location.reload(); // Refresh to get updated data
+      refetchProducts();
+      refetchMovements();
     } catch (error) {
       console.error('Error creating movement:', error);
       toast.error('Error al registrar movimiento');

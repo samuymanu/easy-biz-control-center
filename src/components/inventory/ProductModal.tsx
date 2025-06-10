@@ -225,10 +225,15 @@ const ProductModal = ({ isOpen, onClose, onSave, product, categories, suppliers,
               <Input
                 id="cost_price"
                 type="number"
-                step="0.01"
-                min="0"
-                value={formData.cost_price}
-                onChange={(e) => setFormData(prev => ({ ...prev, cost_price: parseFloat(e.target.value) || 0 }))}
+                min={0}
+                value={formData.cost_price === 0 ? "" : formData.cost_price}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setFormData(prev => ({
+                    ...prev,
+                    cost_price: value === "" ? 0 : Number(value)
+                  }));
+                }}
                 required
               />
             </div>
@@ -238,10 +243,15 @@ const ProductModal = ({ isOpen, onClose, onSave, product, categories, suppliers,
               <Input
                 id="sale_price"
                 type="number"
-                step="0.01"
-                min="0"
-                value={formData.sale_price}
-                onChange={(e) => setFormData(prev => ({ ...prev, sale_price: parseFloat(e.target.value) || 0 }))}
+                min={0}
+                value={formData.sale_price === 0 ? "" : formData.sale_price}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setFormData(prev => ({
+                    ...prev,
+                    sale_price: value === "" ? 0 : Number(value)
+                  }));
+                }}
                 required
               />
             </div>
@@ -253,9 +263,15 @@ const ProductModal = ({ isOpen, onClose, onSave, product, categories, suppliers,
               <Input
                 id="current_stock"
                 type="number"
-                min="0"
-                value={formData.current_stock}
-                onChange={(e) => setFormData(prev => ({ ...prev, current_stock: parseInt(e.target.value) || 0 }))}
+                min={0}
+                value={formData.current_stock === 0 ? "" : formData.current_stock}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setFormData(prev => ({
+                    ...prev,
+                    current_stock: value === "" ? 0 : Number(value)
+                  }));
+                }}
                 required
               />
             </div>
@@ -265,9 +281,15 @@ const ProductModal = ({ isOpen, onClose, onSave, product, categories, suppliers,
               <Input
                 id="minimum_stock"
                 type="number"
-                min="0"
-                value={formData.minimum_stock}
-                onChange={(e) => setFormData(prev => ({ ...prev, minimum_stock: parseInt(e.target.value) || 0 }))}
+                min={0}
+                value={formData.minimum_stock === 0 ? "" : formData.minimum_stock}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setFormData(prev => ({
+                    ...prev,
+                    minimum_stock: value === "" ? 0 : Number(value)
+                  }));
+                }}
                 required
               />
             </div>
@@ -277,9 +299,15 @@ const ProductModal = ({ isOpen, onClose, onSave, product, categories, suppliers,
               <Input
                 id="maximum_stock"
                 type="number"
-                min="0"
-                value={formData.maximum_stock}
-                onChange={(e) => setFormData(prev => ({ ...prev, maximum_stock: parseInt(e.target.value) || 0 }))}
+                min={0}
+                value={formData.maximum_stock === 0 ? "" : formData.maximum_stock}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setFormData(prev => ({
+                    ...prev,
+                    maximum_stock: value === "" ? 0 : Number(value)
+                  }));
+                }}
               />
             </div>
           </div>

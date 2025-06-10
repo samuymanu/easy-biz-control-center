@@ -1,5 +1,6 @@
-
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from 'react';
+import { exportToCSV as exportToCSVUtil } from '@/utils/exportToCSV';
+import { exportToPDF as exportPDFUtil } from '@/utils/exportToPDF';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +26,15 @@ interface ProductReportData {
   stock_status: string;
 }
 
+interface CustomerReportData {
+  name: string;
+  email: string;
+  phone: string;
+  total_purchases: number;
+  total_spent: number;
+  last_purchase: string; // fecha
+}
+
 interface DashboardStats {
   monthly_sales: number;
   sales_count: number;
@@ -39,11 +49,16 @@ const Reports = () => {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [reportType, setReportType] = useState("");
+  const [exportHistory, setExportHistory] = useState(() => {
+    const saved = localStorage.getItem('exportHistory');
+    return saved ? JSON.parse(saved) : [];
+  });
 
   // API hooks
   const { data: dashboardStats } = useApi<DashboardStats>('/dashboard/stats');
   const { data: salesReport } = useApi<SalesReportData[]>(`/reports/sales?from_date=${dateFrom}&to_date=${dateTo}`, [dateFrom, dateTo]);
   const { data: productsReport } = useApi<ProductReportData[]>('/reports/products');
+  const { data: customersReport } = useApi<CustomerReportData[]>('/reports/customers');
   const { mutate: exportData } = useApiMutation();
 
   // Configurar fechas por defecto
@@ -133,13 +148,97 @@ const Reports = () => {
     }
   };
 
+  const exportInventoryToCSV = () => {
+    if (productsReport && productsReport.length > 0) {
+      // Use the imported utility function for inventory export
+      // Use the imported exportToCSV as exportToCSVUtil to avoid name conflict
+      import('@/utils/exportToCSV').then(({ exportToCSV }) => {
+        exportToCSV(`reporte-inventario-${dateFrom}-${dateTo}.csv`, productsReport);
+      });
+      addExportToHistory('csv', `reporte-inventario-${dateFrom}-${dateTo}.csv`);
+      toast({
+        title: "Exportado a CSV",
+        description: "El inventario ha sido descargado",
+      });
+    } else {
+      toast({
+        title: "Sin datos",
+        description: "No hay inventario para exportar",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const exportInventoryToPDF = () => {
+    if (productsReport && productsReport.length > 0) {
+      exportPDFUtil(`reporte-inventario-${dateFrom}-${dateTo}.pdf`, productsReport);
+      addExportToHistory('pdf', `reporte-inventario-${dateFrom}-${dateTo}.pdf`);
+      toast({
+        title: "Exportado a PDF",
+        description: "El inventario ha sido descargado",
+      });
+    } else {
+      toast({
+        title: "Sin datos",
+        description: "No hay inventario para exportar",
+        variant: "destructive",
+      });
+    }
+  };
+
+  function addExportToHistory(tipo: string, filename: string) {
+    const item = {
+      tipo,
+      filename,
+      fecha: new Date().toLocaleString(),
+    };
+    const updated = [item, ...exportHistory].slice(0, 10);
+    setExportHistory(updated);
+    localStorage.setItem('exportHistory', JSON.stringify(updated));
+  }
+
+  // Exportar clientes a CSV
+  const exportCustomersToCSV = () => {
+    if (customersReport && customersReport.length > 0) {
+      exportToCSVUtil(`reporte-clientes-${dateFrom}-${dateTo}.csv`, customersReport);
+      addExportToHistory('csv', `reporte-clientes-${dateFrom}-${dateTo}.csv`);
+      toast({
+        title: "Exportado a CSV",
+        description: "El listado de clientes ha sido descargado",
+      });
+    } else {
+      toast({
+        title: "Sin datos",
+        description: "No hay clientes para exportar",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Exportar clientes a PDF (stub, implementa según tu lógica)
+  const exportCustomersToPDF = () => {
+    if (customersReport && customersReport.length > 0) {
+      exportPDFUtil(`reporte-clientes-${dateFrom}-${dateTo}.pdf`, customersReport);
+      addExportToHistory('pdf', `reporte-clientes-${dateFrom}-${dateTo}.pdf`);
+      toast({
+        title: "Exportado a PDF",
+        description: "El listado de clientes ha sido descargado",
+      });
+    } else {
+      toast({
+        title: "Sin datos",
+        description: "No hay clientes para exportar",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-slate-800">Reportes y Análisis</h1>
         <div className="flex gap-2">
-          <Button onClick={exportToCSV} variant="outline">
-            <Download className="h-4 w-4 mr-2" />
+          <Button onClick={exportToCSV}>
             Exportar CSV
           </Button>
           <Button onClick={exportToPDF} className="bg-red-600 hover:bg-red-700">
@@ -315,6 +414,15 @@ const Reports = () => {
         </TabsContent>
 
         <TabsContent value="inventory" className="space-y-6">
+          <div className="flex gap-2 justify-end">
+            <Button size="sm" onClick={exportInventoryToCSV}>
+              Exportar Inventario CSV
+            </Button>
+            <Button size="sm" onClick={exportInventoryToPDF} className="bg-red-600 hover:bg-red-700">
+              <FileText className="h-4 w-4 mr-2" />
+              Exportar Inventario PDF
+            </Button>
+          </div>
           <Card>
             <CardHeader>
               <CardTitle>Valor del Inventario por Producto</CardTitle>
@@ -367,15 +475,49 @@ const Reports = () => {
               <CardDescription>Métricas y comportamiento de clientes</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-center text-slate-500 py-8">
-                Los reportes de clientes se implementarán en la siguiente versión.
-                <br />
-                <Button variant="outline" className="mt-4">
-                  Solicitar Funcionalidad
-                </Button>
-              </div>
+              {customersReport && customersReport.length > 0 ? (
+                <div className="overflow-auto">
+                  <table className="min-w-full border text-sm">
+                    <thead>
+                      <tr className="bg-slate-100">
+                        <th className="px-2 py-1 border">Nombre</th>
+                        <th className="px-2 py-1 border">Email</th>
+                        <th className="px-2 py-1 border">Teléfono</th>
+                        <th className="px-2 py-1 border">Compras</th>
+                        <th className="px-2 py-1 border">Total Gastado</th>
+                        <th className="px-2 py-1 border">Última Compra</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {customersReport.map((c, i) => (
+                        <tr key={i} className="hover:bg-slate-50">
+                          <td className="px-2 py-1 border">{c.name}</td>
+                          <td className="px-2 py-1 border">{c.email}</td>
+                          <td className="px-2 py-1 border">{c.phone}</td>
+                          <td className="px-2 py-1 border text-center">{c.total_purchases}</td>
+                          <td className="px-2 py-1 border">${c.total_spent.toLocaleString()}</td>
+                          <td className="px-2 py-1 border">{new Date(c.last_purchase).toLocaleDateString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center text-slate-500 py-8">
+                  No hay datos de clientes en este período.
+                </div>
+              )}
             </CardContent>
           </Card>
+          <div className="flex gap-2 justify-end">
+            <Button size="sm" onClick={exportCustomersToCSV}>
+              Exportar Clientes CSV
+            </Button>
+            <Button size="sm" onClick={exportCustomersToPDF} className="bg-red-600 hover:bg-red-700">
+              <FileText className="h-4 w-4 mr-2" />
+              Exportar Clientes PDF
+            </Button>
+          </div>
         </TabsContent>
 
         <TabsContent value="financial" className="space-y-6">
@@ -409,6 +551,17 @@ const Reports = () => {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <div className="mt-8">
+        <h3 className="font-semibold text-slate-700 mb-2">Historial de exportaciones</h3>
+        <ul className="text-sm text-slate-600">
+          {exportHistory.map((item, idx) => (
+            <li key={idx}>
+              [{item.tipo.toUpperCase()}] {item.filename} - {item.fecha}
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
   );
 };
