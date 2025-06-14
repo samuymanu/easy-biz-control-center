@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -6,28 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-
-interface Product {
-  id: string;
-  sku: string;
-  name: string;
-  description?: string;
-  category_id: number;
-  category_name?: string;
-  supplier_id?: number;
-  supplier_name?: string;
-  cost_price: number;
-  sale_price: number;
-  current_stock: number;
-  minimum_stock: number;
-  maximum_stock?: number;
-  unit_of_measure?: string;
-  barcode?: string;
-  image_url?: string;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-}
+import { Product } from "@/types/inventory";
 
 interface StockMovementModalProps {
   isOpen: boolean;

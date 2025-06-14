@@ -1,4 +1,3 @@
-
 -- Schema para la base de datos SQLite del Sistema Administrativo
 -- Este archivo define la estructura de las tablas necesarias
 
@@ -43,6 +42,8 @@ CREATE TABLE IF NOT EXISTS products (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     sku VARCHAR(50) UNIQUE NOT NULL,
     name VARCHAR(200) NOT NULL,
+    brand VARCHAR(100),
+    model VARCHAR(100),
     description TEXT,
     category_id INTEGER,
     supplier_id INTEGER,

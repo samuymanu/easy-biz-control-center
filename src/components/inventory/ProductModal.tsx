@@ -5,43 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-
-interface Product {
-  id: string;
-  sku: string;
-  name: string;
-  description?: string;
-  category_id: number;
-  category_name?: string;
-  supplier_id?: number;
-  supplier_name?: string;
-  cost_price: number;
-  sale_price: number;
-  current_stock: number;
-  minimum_stock: number;
-  maximum_stock?: number;
-  unit_of_measure?: string;
-  barcode?: string;
-  image_url?: string;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
-interface Category {
-  id: number;
-  name: string;
-  description?: string;
-}
-
-interface Supplier {
-  id: number;
-  name: string;
-  contact_person?: string;
-  email?: string;
-  phone?: string;
-  address?: string;
-}
+import { Product, Category, Supplier } from "@/types/inventory";
 
 interface ProductModalProps {
   isOpen: boolean;
@@ -57,6 +21,8 @@ const ProductModal = ({ isOpen, onClose, onSave, product, categories, suppliers,
   const [formData, setFormData] = useState({
     sku: "",
     name: "",
+    brand: "",
+    model: "",
     description: "",
     category_id: "",
     supplier_id: "0", // Usar "0" en lugar de "" para indicar sin proveedor
@@ -75,6 +41,8 @@ const ProductModal = ({ isOpen, onClose, onSave, product, categories, suppliers,
       setFormData({
         sku: product.sku,
         name: product.name,
+        brand: product.brand || "",
+        model: product.model || "",
         description: product.description || "",
         category_id: product.category_id.toString(),
         supplier_id: product.supplier_id?.toString() || "0",
@@ -96,6 +64,8 @@ const ProductModal = ({ isOpen, onClose, onSave, product, categories, suppliers,
     setFormData({
       sku: "",
       name: "",
+      brand: "",
+      model: "",
       description: "",
       category_id: "",
       supplier_id: "0",
@@ -163,6 +133,28 @@ const ProductModal = ({ isOpen, onClose, onSave, product, categories, suppliers,
                 onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                 placeholder="Nombre del producto"
                 required
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="brand">Marca</Label>
+              <Input
+                id="brand"
+                value={formData.brand}
+                onChange={(e) => setFormData(prev => ({ ...prev, brand: e.target.value }))}
+                placeholder="Marca del producto"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="model">Modelo</Label>
+              <Input
+                id="model"
+                value={formData.model}
+                onChange={(e) => setFormData(prev => ({ ...prev, model: e.target.value }))}
+                placeholder="Modelo del producto"
               />
             </div>
           </div>

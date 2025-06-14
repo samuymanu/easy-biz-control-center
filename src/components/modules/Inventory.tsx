@@ -10,54 +10,7 @@ import { useApi, useApiMutation } from "@/hooks/useApi";
 import { toast } from "sonner";
 import ProductModal from "@/components/inventory/ProductModal";
 import StockMovementModal from "@/components/inventory/StockMovementModal";
-
-interface Product {
-  id: string;
-  sku: string;
-  name: string;
-  description?: string;
-  category_id: number;
-  category_name?: string;
-  supplier_id?: number;
-  supplier_name?: string;
-  cost_price: number;
-  sale_price: number;
-  current_stock: number;
-  minimum_stock: number;
-  maximum_stock?: number;
-  unit_of_measure?: string;
-  barcode?: string;
-  image_url?: string;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
-interface Category {
-  id: number;
-  name: string;
-  description?: string;
-}
-
-interface Supplier {
-  id: number;
-  name: string;
-  contact_person?: string;
-  email?: string;
-  phone?: string;
-  address?: string;
-}
-
-interface Movement {
-  id: number;
-  product_id: number;
-  product_name: string;
-  movement_type: string;
-  quantity: number;
-  reason: string;
-  username: string;
-  created_at: string;
-}
+import { Product, Category, Supplier, Movement } from "@/types/inventory";
 
 const Inventory = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -83,7 +36,9 @@ const Inventory = () => {
 
   const filteredProducts = products.filter(product =>
     product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.sku.toLowerCase().includes(searchTerm.toLowerCase())
+    product.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (product.brand && product.brand.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (product.model && product.model.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   const handleAddProduct = async (productData: any) => {
@@ -155,7 +110,10 @@ const Inventory = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-slate-800">Gestión de Inventario</h1>
-        <Button onClick={() => setIsProductModalOpen(true)} className="bg-blue-600 hover:bg-blue-700">
+        <Button onClick={() => {
+            setSelectedProduct(null);
+            setIsProductModalOpen(true);
+        }} className="bg-blue-600 hover:bg-blue-700">
           <Plus className="h-4 w-4 mr-2" />
           Nuevo Producto
         </Button>
@@ -224,7 +182,7 @@ const Inventory = () => {
             <CardContent>
               <div className="flex gap-4">
                 <div className="flex-1">
-                  <Label htmlFor="search">Buscar por nombre o SKU</Label>
+                  <Label htmlFor="search">Buscar por nombre, SKU, marca o modelo</Label>
                   <div className="relative">
                     <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
                     <Input
@@ -251,6 +209,9 @@ const Inventory = () => {
                     <div className="flex justify-between items-start">
                       <div>
                         <CardTitle className="text-lg">{product.name}</CardTitle>
+                        {(product.brand || product.model) && 
+                          <CardDescription>{product.brand} {product.model}</CardDescription>
+                        }
                         <CardDescription>SKU: {product.sku}</CardDescription>
                       </div>
                       <Badge variant="secondary">{product.category_name || 'Sin categoría'}</Badge>
