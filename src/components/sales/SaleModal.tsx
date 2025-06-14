@@ -9,12 +9,7 @@ interface Customer {
   name: string;
   email: string;
 }
-interface Product {
-  id: string;
-  name: string;
-  sale_price: number;
-  current_stock: number;
-}
+
 interface SaleModalProps {
   isOpen: boolean;
   onClose: () => void;
