@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { LogOut, Settings as SettingsIcon, Database, Users, Plus } from "lucide-react";
 import { useApi, useApiMutation, apiClient } from "@/hooks/useApi";
@@ -45,12 +45,12 @@ const Settings = ({ onLogout }: SettingsProps) => {
     password: "",
     email: "",
     fullName: "",
-    role: "user"
+    role: "vendedor"
   });
   const [showUserForm, setShowUserForm] = useState(false);
 
   // API hooks
-  const { data: users, loading: usersLoading, error: usersError } = useApi<User[]>('/users');
+  const { data: users, loading: usersLoading, error: usersError, refetch: refetchUsers } = useApi<User[]>('/users');
   const { data: configData } = useApi<ConfigData>('/config');
   const { data: backups } = useApi<BackupFile[]>('/backup/list');
   const { mutate: saveConfig, loading: savingConfig } = useApiMutation();
@@ -85,14 +85,13 @@ const Settings = ({ onLogout }: SettingsProps) => {
     e.preventDefault();
     try {
       await createUser('/auth/register', newUser);
-      setNewUser({ username: "", password: "", email: "", fullName: "", role: "user" });
+      setNewUser({ username: "", password: "", email: "", fullName: "", role: "vendedor" });
       setShowUserForm(false);
       toast({
         title: "Usuario creado",
         description: "El usuario se ha creado correctamente.",
       });
-      // Refrescar la lista de usuarios
-      window.location.reload();
+      refetchUsers();
     } catch (error) {
       toast({
         title: "Error",
@@ -132,7 +131,7 @@ const Settings = ({ onLogout }: SettingsProps) => {
           title: "Usuario actualizado",
           description: `El usuario ha sido ${isActive ? 'activado' : 'desactivado'}.`,
         });
-        window.location.reload();
+        refetchUsers();
       }
     } catch (error) {
       toast({
@@ -140,6 +139,31 @@ const Settings = ({ onLogout }: SettingsProps) => {
         description: "No se pudo actualizar el usuario.",
         variant: "destructive",
       });
+    }
+  };
+
+  const getRoleBadgeVariant = (role: string) => {
+    switch (role) {
+      case 'admin':
+      case 'administrador':
+        return 'default';
+      case 'vendedor':
+        return 'secondary';
+      default:
+        return 'outline';
+    }
+  };
+
+  const getRoleDisplayName = (role: string) => {
+    switch (role) {
+      case 'admin':
+        return 'Administrador';
+      case 'administrador':
+        return 'Administrador';
+      case 'vendedor':
+        return 'Vendedor';
+      default:
+        return role;
     }
   };
 
@@ -316,6 +340,21 @@ const Settings = ({ onLogout }: SettingsProps) => {
                         required
                       />
                     </div>
+                    <div className="md:col-span-2">
+                      <Label htmlFor="new-role">Rol</Label>
+                      <Select
+                        value={newUser.role}
+                        onValueChange={(value) => setNewUser(prev => ({ ...prev, role: value }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccionar rol" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="administrador">Administrador</SelectItem>
+                          <SelectItem value="vendedor">Vendedor</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                   <div className="flex gap-2">
                     <Button type="submit" disabled={creatingUser}>
@@ -340,8 +379,8 @@ const Settings = ({ onLogout }: SettingsProps) => {
                         <div className="font-medium">{user.full_name}</div>
                         <div className="text-sm text-slate-600">{user.email}</div>
                         <div className="flex gap-2 mt-1">
-                          <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
-                            {user.role}
+                          <Badge variant={getRoleBadgeVariant(user.role)}>
+                            {getRoleDisplayName(user.role)}
                           </Badge>
                           <Badge variant={user.is_active ? 'default' : 'destructive'}>
                             {user.is_active ? 'Activo' : 'Inactivo'}
