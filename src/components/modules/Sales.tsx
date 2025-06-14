@@ -13,6 +13,7 @@ import CustomerModal from "@/components/sales/CustomerModal";
 import FacturaModal from "@/components/sales/FacturaModal";
 import HistorialClienteModal from "@/components/sales/HistorialClienteModal";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { Product } from "@/types/inventory";
 
 interface Customer {
   id: string;
@@ -24,15 +25,6 @@ interface Customer {
   tax_id?: string;
   credit_limit?: number;
   is_active?: boolean;
-}
-
-interface Product {
-  id: string;
-  sku: string;
-  name: string;
-  sale_price: number;
-  current_stock: number;
-  category_name?: string;
 }
 
 interface Sale {
