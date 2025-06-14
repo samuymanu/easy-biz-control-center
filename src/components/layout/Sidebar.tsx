@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { 
@@ -30,6 +31,32 @@ const Sidebar = ({ activeModule, onModuleChange, collapsed, onToggleCollapse, us
     { id: "settings", label: "Configuración", icon: Settings },
   ];
 
+  const getVisibleMenuItems = () => {
+    if (!user) {
+      return [];
+    }
+    const role = user.role.toLowerCase();
+
+    return menuItems.filter((item) => {
+      switch (item.id) {
+        case "dashboard":
+          return true;
+        case "inventory":
+          return ["admin", "administrativo"].includes(role);
+        case "sales":
+          return ["admin", "vendedor", "administrativo"].includes(role);
+        case "reports":
+          return ["admin", "administrativo"].includes(role);
+        case "settings":
+          return role === "admin";
+        default:
+          return false;
+      }
+    });
+  };
+
+  const visibleMenuItems = getVisibleMenuItems();
+
   return (
     <div className={cn(
       "fixed left-0 top-0 h-full bg-slate-900 text-white transition-all duration-300 z-50",
@@ -52,7 +79,7 @@ const Sidebar = ({ activeModule, onModuleChange, collapsed, onToggleCollapse, us
 
       {/* Navigation */}
       <nav className="mt-6">
-        {menuItems.map((item) => {
+        {visibleMenuItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeModule === item.id;
           

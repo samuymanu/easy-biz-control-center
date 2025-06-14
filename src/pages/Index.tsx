@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import Sidebar from "@/components/layout/Sidebar";
 import Dashboard from "@/components/modules/Dashboard";
@@ -14,19 +15,31 @@ const Index = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const renderActiveModule = () => {
+    if (!user) return null;
+    const userRole = user.role.toLowerCase();
+
     switch (activeModule) {
       case "dashboard":
         return <Dashboard />;
       case "inventory":
-        if (user?.role !== "admin") {
+        if (!["admin", "administrativo"].includes(userRole)) {
           return <div className="p-4 text-red-600">No tienes acceso a este módulo.</div>;
         }
         return <Inventory />;
       case "sales":
+        if (!["admin", "vendedor", "administrativo"].includes(userRole)) {
+          return <div className="p-4 text-red-600">No tienes acceso a este módulo.</div>;
+        }
         return <Sales />;
       case "reports":
+        if (!["admin", "administrativo"].includes(userRole)) {
+          return <div className="p-4 text-red-600">No tienes acceso a este módulo.</div>;
+        }
         return <Reports />;
       case "settings":
+        if (userRole !== "admin") {
+          return <div className="p-4 text-red-600">No tienes acceso a este módulo.</div>;
+        }
         return <Settings onLogout={logout} />;
       default:
         return <Dashboard />;
